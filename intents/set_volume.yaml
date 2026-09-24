@@ -1,0 +1,25 @@
+id: set_volume
+patterns:
+  - "{direction} (volume|suara|suaranya|volumenya)"
+  - "(atur|setel|set|ubah) volume [ke] {level} [persen]"
+  - "volume {level} [persen]"
+slots:
+  direction:
+    type: enum
+    values:
+      naikkan: up
+      keraskan: up
+      besarkan: up
+      tambah: up
+      turunkan: down
+      kecilkan: down
+      pelankan: down
+      kurangi: down
+  level:
+    type: number
+examples:
+  - "naikkan volume"
+  - "volume lima puluh persen"
+action: set_volume
+confirmation: never
+needs_network: false

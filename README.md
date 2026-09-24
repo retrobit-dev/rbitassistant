@@ -22,6 +22,18 @@ Dua di antaranya menentukan bentuk proyek ini:
 
 Selebihnya — wake word yang tidak mendukung bahasa Indonesia, XOS yang agresif mematikan proses latar, kuota API yang bisa berubah — ada di [architecture.md §15](docs/architecture.md).
 
+## Katalog perintah (sudah bisa diuji)
+
+23 perintah berbahasa Indonesia ada di `intents/`, dan diuji otomatis melawan 139 ucapan di `testdata/golden_intents.json`. Di dalamnya ada 22 jebakan seperti *"buka puasa jam berapa"*, yang harus dijawab chatbot dan bukan malah membuka aplikasi. Coba sendiri:
+
+```bash
+python3 -m venv .venv-doccheck && .venv-doccheck/bin/pip install pyyaml
+.venv-doccheck/bin/python tools/intent_lab.py "tolong buka wa dong"
+.venv-doccheck/bin/python tools/check_docs.py
+```
+
+Aturannya ada di [docs/intents.md](docs/intents.md).
+
 ## Online dulu, offline bila tidak ada internet
 
 Asisten memakai **Gemini (online) bila tersedia**, lalu **otomatis turun ke model di perangkat** saat sinyal hilang, kuota free tier habis, atau server terlalu lambat — per permintaan, tanpa pengguna mengganti mode. Perintah (buka aplikasi, timer, telepon, volume) **selalu lokal** dan tetap jalan di mode pesawat. Suara (TTS) sengaja selalu lokal supaya tidak berganti di tengah percakapan. Rincian: [architecture.md §4.10](docs/architecture.md) dan [ADR 0002](docs/decisions/0002-online-first-offline-fallback.md).

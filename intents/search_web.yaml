@@ -1,0 +1,14 @@
+id: search_web
+patterns:
+  - "(cari|carikan|googling|search) {query} [di (google|internet)]"
+  - "cari di (google|internet) {query}"
+slots:
+  query:
+    type: text
+    max_words: 8
+examples:
+  - "cari resep rendang"
+  - "googling harga emas"
+action: web_search         # membuka browser, bukan jawaban LLM
+confirmation: never
+needs_network: true

@@ -1,0 +1,15 @@
+id: weather
+patterns:
+  - "[bagaimana] cuaca [di {place}] [(hari ini|besok)]"
+  - "cuaca {place} [(hari ini|besok)]"
+  - "(apakah|apa) [(hari ini|besok)] [akan] hujan [di {place}]"
+slots:
+  place:
+    type: text
+    max_words: 3            # "cuaca bagus untuk jalan jalan" bukan nama tempat
+examples:
+  - "cuaca hari ini"
+  - "cuaca di jepara besok"
+action: get_weather
+confirmation: never
+needs_network: true

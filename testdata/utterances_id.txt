@@ -1,0 +1,27 @@
+# Korpus 20 kalimat untuk Fase 0 (docs/architecture.md §9): ucapkan satu per satu
+# ke recognizer di Infinix GT 30 Pro, lalu bandingkan transkripnya dengan baris ini.
+# Setiap baris WAJIB ada di golden_intents.json, supaya transkrip ASR bisa langsung
+# diumpankan ke router: python tools/intent_lab.py "<transkrip>"
+#
+# Dipilih untuk menguji: nama aplikasi berbahasa Inggris, nama orang, bilangan
+# yang diucapkan, jam, dan jebakan yang mirip perintah.
+buka whatsapp
+buka YouTube
+mainkan game mobile legends
+install tiktok
+telepon ibu
+telpon budi
+kirim wa ke budi bilang besok rapat jam sembilan
+setel timer lima menit
+timer tiga puluh detik
+pasang alarm jam lima pagi
+jam berapa sekarang
+putar lagu dewa sembilan belas
+volume lima puluh persen
+nyalakan senter
+buka pengaturan wifi
+cuaca di jepara besok
+navigasi ke alun-alun jepara
+batal
+buka puasa jam berapa
+kenapa langit berwarna biru

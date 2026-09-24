@@ -1,0 +1,10 @@
+id: what_time
+patterns:
+  - "[sekarang] (jam|pukul) berapa [sekarang]"
+slots: {}
+examples:
+  - "jam berapa sekarang"
+  - "sekarang pukul berapa"
+action: tell_time
+confirmation: never
+needs_network: false

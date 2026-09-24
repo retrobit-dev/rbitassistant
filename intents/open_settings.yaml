@@ -1,0 +1,22 @@
+id: open_settings
+patterns:
+  - "buka pengaturan [{page}]"
+  - "pengaturan {page}"
+slots:
+  page:
+    type: enum
+    values:
+      wifi: wifi
+      wi fi: wifi
+      bluetooth: bluetooth
+      baterai: battery
+      suara: sound
+      layar: display
+      lokasi: location
+      data seluler: mobile_data
+examples:
+  - "buka pengaturan"
+  - "buka pengaturan wifi"
+action: open_settings      # Settings.ACTION_* yang sesuai
+confirmation: never
+needs_network: false

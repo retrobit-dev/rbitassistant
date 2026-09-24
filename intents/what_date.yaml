@@ -1,0 +1,12 @@
+id: what_date
+patterns:
+  - "[sekarang|hari ini] tanggal berapa [sekarang|hari ini]"
+  - "hari ini hari apa"
+  - "sekarang hari apa"
+slots: {}
+examples:
+  - "tanggal berapa hari ini"
+  - "hari ini hari apa"
+action: tell_date
+confirmation: never
+needs_network: false

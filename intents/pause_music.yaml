@@ -1,0 +1,11 @@
+id: pause_music
+patterns:
+  - "(jeda|hentikan|stop|matikan) (musik|lagu|musiknya|lagunya)"
+  - "jeda"
+slots: {}
+examples:
+  - "jeda musik"
+  - "stop lagunya"
+action: pause_media
+confirmation: never
+needs_network: false

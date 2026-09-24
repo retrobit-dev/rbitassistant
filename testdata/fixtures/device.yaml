@@ -1,0 +1,60 @@
+# Perangkat tiruan untuk menguji resolver slot tanpa HP sungguhan.
+#
+# Di aplikasi nyata, daftar ini diambil dari PackageManager (aplikasi terpasang)
+# dan ContactsContract (kontak). Resolver produksi memakai pencocokan fuzzy
+# (router tingkat 3); resolver di tools/intent_lab.py hanya mencocokkan nama
+# atau alias PERSIS setelah normalisasi. Karena itu kasus salah-dengar ASR
+# ("buka wasap" -> WhatsApp) diuji lewat alias, bukan fuzzy.
+#
+# Nama paket com.transsion.* hanyalah ILUSTRASI, bukan nama paket XOS yang
+# sudah diperiksa. Resolver tidak memakainya; yang dicocokkan adalah name/aliases.
+
+installed_apps:
+  - name: WhatsApp
+    package: com.whatsapp
+    aliases: [whatsapp]
+  - name: YouTube
+    package: com.google.android.youtube
+    aliases: [youtube, yt, yutub]
+  - name: Instagram
+    package: com.instagram.android
+    aliases: [instagram, ig]
+  - name: TikTok
+    package: com.zhiliaoapp.musically
+    aliases: [tiktok, tik tok]
+  - name: Spotify
+    package: com.spotify.music
+    aliases: [spotify]
+  - name: Google Maps
+    package: com.google.android.apps.maps
+    aliases: [maps, google maps, peta]
+  - name: Kamera
+    package: com.transsion.camera
+    aliases: [kamera, camera]
+  - name: Galeri
+    package: com.transsion.gallery
+    aliases: [galeri, gallery, foto]
+  - name: Kalkulator
+    package: com.transsion.calculator
+    aliases: [kalkulator, calculator]
+  - name: Gojek
+    package: com.gojek.app
+    aliases: [gojek]
+  - name: Shopee
+    package: com.shopee.id
+    aliases: [shopee]
+  - name: Mobile Legends
+    package: com.mobile.legends
+    aliases: [mobile legends, ml, mobel]
+
+contacts:
+  - name: Ibu
+    aliases: [ibu, mama, mamah, emak]
+  - name: Bapak
+    aliases: [bapak, ayah, papa, bapak saya]
+  - name: Budi Santoso
+    aliases: [budi, budi santoso]
+  - name: Siti Rahma
+    aliases: [siti, siti rahma]
+  - name: Pak Joko Kantor
+    aliases: [pak joko, joko]

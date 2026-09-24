@@ -1,0 +1,14 @@
+id: send_sms
+patterns:
+  - "(kirim|kirimkan) (sms|pesan) ke {contact} (bilang|isinya|yang isinya) {message}"
+  - "sms {contact} (bilang|isinya) {message}"
+slots:
+  contact:
+    type: contact
+  message:
+    type: text
+examples:
+  - "kirim sms ke ibu bilang aku pulang telat"
+action: send_sms
+confirmation: always
+needs_network: false

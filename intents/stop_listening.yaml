@@ -1,0 +1,13 @@
+id: stop_listening
+patterns:
+  - "(sudah|cukup) [itu] [saja]"
+  - "sudah cukup"
+  - "itu saja"
+  - "selesai"
+slots: {}
+examples:
+  - "sudah cukup"
+  - "itu aja"
+action: end_session
+confirmation: never
+needs_network: false

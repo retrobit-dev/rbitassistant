@@ -1,0 +1,13 @@
+id: open_app
+patterns:
+  - "(buka|jalankan|luncurkan|open|mainkan game) [aplikasi] {app}"
+slots:
+  app:
+    type: app_name        # produksi: resolver fuzzy ke PackageManager
+examples:
+  - "buka whatsapp"
+  - "buka YouTube"
+  - "jalankan galeri"
+action: launch_app
+confirmation: never
+needs_network: false

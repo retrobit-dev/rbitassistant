@@ -1,0 +1,21 @@
+id: toggle_flashlight
+patterns:
+  - "{state} senter"
+  - "senter {state}"
+slots:
+  state:
+    type: enum
+    values:
+      nyalakan: "on"
+      hidupkan: "on"
+      aktifkan: "on"
+      nyala: "on"
+      matikan: "off"
+      padamkan: "off"
+      mati: "off"
+examples:
+  - "nyalakan senter"
+  - "matikan lampu senter"
+action: toggle_flashlight  # CameraManager.setTorchMode
+confirmation: never
+needs_network: false

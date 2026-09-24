@@ -1,0 +1,11 @@
+id: repeat
+patterns:
+  - "(ulangi|ulang|diulang) [lagi]"
+  - "(apa tadi|tadi apa|tadi bilang apa)"
+slots: {}
+examples:
+  - "ulangi"
+  - "coba ulangi lagi"
+action: repeat_last_reply
+confirmation: never
+needs_network: false

@@ -1,0 +1,14 @@
+id: play_music
+patterns:
+  - "(putar|putarkan|mainkan|setel) (musik|lagu) [{query}]"
+  - "(putar|putarkan|mainkan|setel) {query} di spotify"
+slots:
+  query:
+    type: text
+    max_words: 6
+examples:
+  - "putar musik"
+  - "putar lagu dewa 19"
+action: play_music        # lewat MediaSession / intent aplikasi musik
+confirmation: never
+needs_network: false

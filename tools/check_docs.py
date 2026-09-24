@@ -13,6 +13,8 @@ Yang diperiksa:
      menunjuk berkas yang ada, dan anchor-nya harus benar-benar ada di berkas itu.
   3. Tidak ada aksara yang nyasar (CJK / Hiragana / Katakana / Hangul) di dokumen
      berbahasa Indonesia — ini penyakit nyata yang sudah terjadi di draf ini.
+  4. Katalog intent (intents/*.yaml) valid dan lulus testdata/golden_intents.json
+     lewat tools/intent_lab.py (spesifikasi router tingkat 1–2).
 
 Keluar dengan kode 1 bila ada satu saja kegagalan.
 """
@@ -31,6 +33,7 @@ DOCS = REPO / "docs"
 
 FENCE_RE = re.compile(r"```(?P<lang>[a-zA-Z0-9_+-]*)\n(?P<body>.*?)```", re.DOTALL)
 LINK_RE = re.compile(r"(?<!\!)\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)\)")
+INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(?P<title>.+?)\s*$", re.MULTILINE)
 
 
@@ -92,6 +95,9 @@ def check_links(failures: list[str]) -> int:
     checked = 0
     for md in [REPO / "README.md", *sorted(DOCS.rglob("*.md"))]:
         text = md.read_text(encoding="utf-8")
+        # Isi blok kode dan kode inline bukan tautan: regex seperti `[.:](\d{2})`
+        # akan salah terbaca sebagai [teks](target).
+        text = INLINE_CODE_RE.sub("", FENCE_RE.sub("", text))
         for m in LINK_RE.finditer(text):
             target = m.group("target")
             if target.startswith(("http://", "https://", "mailto:")):
@@ -144,14 +150,32 @@ def check_stray_scripts(failures: list[str]) -> int:
     return checked
 
 
+def check_intents(failures: list[str]) -> str:
+    """Jalankan katalog intent melawan golden set. Kembalikan ringkasan."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import intent_lab  # noqa: E402  (satu folder dengan berkas ini)
+
+    try:
+        router = intent_lab.Router()
+    except intent_lab.CatalogError as exc:
+        failures.append(f"katalog intent tidak valid: {exc}")
+        return "katalog intent tidak valid"
+    rep = intent_lab.run_golden(router)
+    failures.extend(rep.failures)
+    return (f"{len(router.catalog)} intent, {rep.passed} kasus golden lulus "
+            f"({rep.chat_cases} jebakan chat), {rep.known_gaps} celah tercatat")
+
+
 def main() -> int:
     failures: list[str] = []
-    print("[1/3] Mem-parse blok YAML di docs/**")
+    print("[1/4] Mem-parse blok YAML di docs/**")
     n_yaml = check_yaml_blocks(failures)
-    print("[2/3] Memeriksa tautan internal di README.md + docs/**")
+    print("[2/4] Memeriksa tautan internal di README.md + docs/**")
     n_links = check_links(failures)
-    print("[3/3] Memeriksa aksara nyasar (CJK/Kana/Hangul)")
+    print("[3/4] Memeriksa aksara nyasar (CJK/Kana/Hangul)")
     n_chars = check_stray_scripts(failures)
+    print("[4/4] Menguji katalog intent melawan testdata/golden_intents.json")
+    intents_summary = check_intents(failures)
 
     print()
     if failures:
@@ -160,7 +184,7 @@ def main() -> int:
             print(f"  - {f}")
         return 1
     print(f"LULUS — {n_yaml} blok YAML ter-parse, {n_links} tautan internal valid, "
-          f"{n_chars} karakter non-ASCII bersih dari aksara nyasar.")
+          f"{n_chars} karakter non-ASCII bersih dari aksara nyasar; {intents_summary}.")
     return 0
 
 

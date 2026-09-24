@@ -1,0 +1,14 @@
+id: navigate_to
+patterns:
+  - "(navigasi|arahkan|antar|antarkan|tunjukkan jalan) [aku|saya] ke {place}"
+  - "(rute|jalan) ke {place}"
+slots:
+  place:
+    type: text
+    max_words: 6
+examples:
+  - "navigasi ke alun alun jepara"
+  - "rute ke pantai kartini"
+action: navigate           # google.navigation: intent ke aplikasi peta
+confirmation: never
+needs_network: false       # meluncurkan Maps; peta offline tetap bisa

@@ -1,0 +1,14 @@
+id: search_play_store
+patterns:
+  - "cari [aplikasi] {query} di play store"
+  - "(unduh|download|install|instal) [aplikasi] {query}"
+slots:
+  query:
+    type: text
+    max_words: 4
+examples:
+  - "cari aplikasi edit video di play store"
+  - "download canva"
+action: open_play_store_search
+confirmation: never
+needs_network: true       # Play Store tetap terbuka offline, tapi hasil pencarian butuh internet

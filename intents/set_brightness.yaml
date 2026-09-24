@@ -1,0 +1,21 @@
+id: set_brightness
+patterns:
+  - "{direction} (layar|kecerahan|kecerahan layar)"
+  - "(atur|setel|set|ubah) kecerahan [layar] [ke] {level} [persen]"
+slots:
+  direction:
+    type: enum
+    values:
+      terangkan: up
+      naikkan: up
+      redupkan: down
+      gelapkan: down
+      turunkan: down
+  level:
+    type: number
+examples:
+  - "redupkan layar"
+  - "atur kecerahan ke 80 persen"
+action: set_brightness     # butuh izin WRITE_SETTINGS (layar izin khusus)
+confirmation: never
+needs_network: false

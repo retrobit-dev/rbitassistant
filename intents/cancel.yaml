@@ -1,0 +1,11 @@
+id: cancel
+patterns:
+  - "(batal|batalkan|cancel|stop|berhenti)"
+  - "tidak jadi"
+slots: {}
+examples:
+  - "batal"
+  - "gak jadi"
+action: cancel             # hentikan TTS + aksi yang menunggu konfirmasi
+confirmation: never
+needs_network: false

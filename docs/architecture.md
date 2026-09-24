@@ -159,33 +159,32 @@ Ambang awal: `confidence ≥ 0,75` → eksekusi langsung; `0,45–0,75` → konf
 
 ### 4.6 Katalog intent (format deklaratif)
 
-Disimpan sebagai data, bukan kode — supaya menambah perintah tidak perlu recompilasi logika:
+Disimpan sebagai data, bukan kode — supaya menambah perintah tidak perlu recompilasi logika. **Katalognya sudah ada** di `intents/` (23 berkas) dan diuji otomatis melawan 139 ucapan di `testdata/golden_intents.json`. Spesifikasi lengkap (normalisasi, bahasa pola, aturan pemenang, tipe slot) ada di [intents.md](intents.md).
+
+Contoh — isi `intents/open_app.yaml` apa adanya:
 
 ```yaml
 # intents/open_app.yaml
 id: open_app
 patterns:
-  - "buka {app}"
-  - "jalankan {app}"
-  - "luncurkan {app}"
-  - "open {app}"
+  - "(buka|jalankan|luncurkan|open|mainkan game) [aplikasi] {app}"
 slots:
   app:
-    type: app_name
-    resolver: installed_app_fuzzy   # cocokkan dengan daftar aplikasi terpasang
+    type: app_name        # produksi: resolver fuzzy ke PackageManager
 examples:
   - "buka whatsapp"
   - "buka YouTube"
   - "jalankan galeri"
 action: launch_app
 confirmation: never
+needs_network: false
 ```
 
-Set intent MVP (±20 intent sudah terasa seperti asisten sungguhan):
+Set intent MVP (23 intent, semuanya sudah ada di `intents/`). Draf awal menulis `launch_app` di tabel ini, padahal contoh YAML-nya memakai `open_app`. Yang benar: **id intent `open_app`, nama aksinya `launch_app`**.
 
 | Grup | Intent |
 |---|---|
-| Aplikasi | `launch_app`, `search_play_store` |
+| Aplikasi | `open_app`, `search_play_store` |
 | Komunikasi | `call_contact`, `send_sms`, `send_whatsapp` |
 | Waktu | `set_timer`, `set_alarm`, `what_time`, `what_date` |
 | Media | `play_music`, `pause_music`, `next_track`, `set_volume`, `toggle_flashlight` |
@@ -342,7 +341,7 @@ rbitassistant/
 ├── README.md
 ├── docs/
 │   ├── architecture.md          ← dokumen ini
-│   ├── intents.md               ← katalog intent & aturan penulisan pola
+│   ├── intents.md               ← spesifikasi router tingkat 1–2 (ada)
 │   ├── privacy.md               ← apa yang keluar dari perangkat
 │   └── decisions/               ← ADR (Architecture Decision Record) pendek
 │       ├── 0001-not-a-system-assistant.md
@@ -367,12 +366,14 @@ rbitassistant/
 │   ├── tts/                     ← TtsEngine + implementasi
 │   ├── memory/                  ← Room, DataStore
 │   └── domain/                  ← model data & interface (tanpa dependensi Android)
-├── intents/                     ← YAML katalog intent (§4.6), dikemas sebagai asset
+├── intents/                     ← 23 katalog intent + _normalizer.yaml (ada), dikemas sebagai asset
 ├── tools/
-│   └── check_docs.py            ← pemeriksa dokumen: parse YAML intent + validasi tautan
+│   ├── check_docs.py            ← pemeriksa: YAML, tautan, aksara nyasar, katalog intent (ada)
+│   └── intent_lab.py            ← spesifikasi router tingkat 1–2 yang bisa dijalankan (ada)
 └── testdata/
-    ├── utterances_id.txt        ← korpus uji ucapan (transkrip)
-    └── golden_intents.json      ← pasangan ucapan → intent yang diharapkan
+    ├── utterances_id.txt        ← 20 kalimat untuk uji ASR Fase 0 (ada)
+    ├── golden_intents.json      ← 139 ucapan → intent + slot; kontrak router (ada)
+    └── fixtures/device.yaml     ← aplikasi & kontak tiruan untuk resolver (ada)
 ```
 
 Pemeriksa dokumen sudah ada dan bisa dijalankan sekarang (belum ada CI):
@@ -382,7 +383,7 @@ python3 -m venv .venv-doccheck && .venv-doccheck/bin/pip install pyyaml
 .venv-doccheck/bin/python tools/check_docs.py
 ```
 
-Fungsinya tiga hal: (1) setiap blok berlabel `yaml` di `docs/**` harus benar-benar ter-parse dan, bila berupa katalog intent, wajib punya `id`/`patterns`/`slots`/`action`; (2) setiap tautan markdown relatif harus menunjuk berkas dan anchor yang ada; (3) tidak boleh ada aksara CJK/Kana/Hangul yang nyasar di dokumen berbahasa Indonesia. Nanti, saat `intents/*.yaml` mulai diisi, pola pemeriksaan yang sama dipakai untuk memvalidasi katalog sungguhan.
+Fungsinya empat hal: (1) setiap blok berlabel `yaml` di `docs/**` harus benar-benar ter-parse dan, bila berupa katalog intent, wajib punya `id`/`patterns`/`slots`/`action`; (2) setiap tautan markdown relatif harus menunjuk berkas dan anchor yang ada; (3) tidak boleh ada aksara CJK/Kana/Hangul yang nyasar di dokumen berbahasa Indonesia; (4) katalog `intents/*.yaml` harus valid dan lulus golden set lewat `tools/intent_lab.py` ([intents.md](intents.md)).
 
 Interface kunci (supaya tiap modul bisa diuji tanpa mikrofon/jaringan):
 
@@ -481,7 +482,7 @@ class FailoverChatEngine(
 Sebelum menulis fitur apa pun, jawab lima pertanyaan ini di GT 30 Pro:
 
 - [ ] `SpeechRecognizer.isOnDeviceRecognitionAvailable(context)` → `true` atau `false` di XOS 15?
-- [ ] Kualitas transkrip `id-ID` untuk 20 kalimat uji (termasuk nama aplikasi, angka, campuran Inggris–Indonesia)?
+- [ ] Kualitas transkrip `id-ID` untuk 20 kalimat uji di `testdata/utterances_id.txt` (nama aplikasi, angka, campuran Inggris–Indonesia, dua jebakan)? Umpankan tiap transkrip ke `tools/intent_lab.py` untuk melihat apakah intent-nya tetap benar.
 - [ ] `TextToSpeech` dengan `Locale("id","ID")` tersedia? Kualitasnya bagaimana?
 - [ ] Apakah foreground service mic bertahan 30 menit dengan XOS battery optimization aktif?
 - [ ] Apakah recognizer jaringan menerima audio dari app lewat `EXTRA_AUDIO_SOURCE`? (Menentukan apakah ASR bisa failover tanpa pengguna mengulang ucapan — §4.10.)
@@ -490,7 +491,7 @@ Sebelum menulis fitur apa pun, jawab lima pertanyaan ini di GT 30 Pro:
 
 ### Fase 1 — MVP push-to-talk (1–2 minggu)
 - [ ] Tombol mic besar + waveform + transkrip real-time (`EXTRA_PARTIAL_RESULTS`).
-- [ ] Router tingkat 1–3 (normalisasi, regex, fuzzy) + 10 intent pertama.
+- [ ] Router tingkat 1–2 di Kotlin yang **lulus `testdata/golden_intents.json`**, lalu tingkat 3 (fuzzy). Katalog 23 intent sudah tersedia.
 - [ ] Chat ke `gemini-3.8-flash`, streaming, ditampilkan sebagai bubble.
 - [ ] TTS `id-ID` lokal dengan `spoken`/`display` terpisah.
 - [ ] **Kerangka online-dulu:** `ConnectivityMonitor`, `FailoverChatEngine`, circuit breaker, tanda online/offline di bubble. Engine offline di fase ini masih *stub* yang menjawab "butuh internet" — yang penting jalurnya sudah ada dan teruji.
@@ -629,7 +630,7 @@ Konsekuensi untuk Fase 1:
 
 1. **Build di mesin Anda** — Android Studio di PC/laptop, atau Termux di GT 30 Pro. Paling cepat dan paling jujur.
 2. **CI di GitHub Actions** — runner `ubuntu-latest` punya akses jaringan penuh ke Maven Central dan Google Maven. **Belum terverifikasi** karena saya tidak bisa memicu run dari sini; harus diuji pada push pertama yang memuat workflow.
-3. **Prototipe logika dalam Python dulu** — normalizer/pattern matcher bisa dibuatkan purwarupa Python + test di sini (terbukti bisa dijalankan), lalu diporting ke Kotlin. Risikonya: dua implementasi yang harus dijaga tetap sama. Hanya layak bila Anda ingin melihat perilaku router sebelum menyentuh Android.
+3. **Prototipe logika dalam Python dulu** — **sudah diambil untuk router tingkat 1–2**: `tools/intent_lab.py` + `testdata/golden_intents.json`. Risiko dua implementasi dikendalikan dengan menjadikan golden set sebagai kontrak yang wajib dilulusi router Kotlin ([intents.md](intents.md)). Jalur ini **tidak** dipakai untuk bagian yang bergantung pada Android (ASR, TTS, eksekusi tool).
 
 **Rekomendasi:** jalur 1 untuk kode Android, jalur 2 dipasang sejak awal supaya tiap commit teruji, dan jangan pakai jalur 3 kecuali ada alasan kuat.
 

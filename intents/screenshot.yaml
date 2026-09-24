@@ -1,0 +1,11 @@
+id: screenshot
+patterns:
+  - "(ambil|tangkap) (screenshot|tangkapan layar|layar)"
+  - "screenshot [layar]"
+slots: {}
+examples:
+  - "ambil screenshot"
+  - "screenshot"
+action: take_screenshot    # AccessibilityService.takeScreenshot / GLOBAL_ACTION_TAKE_SCREENSHOT; opt-in
+confirmation: never
+needs_network: false

@@ -1,0 +1,16 @@
+id: set_timer
+patterns:
+  - "[(setel|pasang|atur|set|buat|nyalakan)] timer [selama] {amount} {unit}"
+  - "(hitung mundur|countdown) {amount} {unit}"
+slots:
+  amount:
+    type: number
+  unit:
+    type: enum
+    values: {detik: second, menit: minute, jam: hour}
+examples:
+  - "setel timer 5 menit"
+  - "timer tiga puluh detik"
+action: set_timer
+confirmation: never
+needs_network: false

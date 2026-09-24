@@ -1,0 +1,12 @@
+id: call_contact
+patterns:
+  - "(telepon|panggil|hubungi|call|video call) {contact}"
+slots:
+  contact:
+    type: contact         # produksi: resolver fuzzy ke ContactsContract
+examples:
+  - "telepon ibu"
+  - "telpon budi"
+action: dial_contact
+confirmation: always      # menelepon memakan pulsa/mengganggu orang lain
+needs_network: false

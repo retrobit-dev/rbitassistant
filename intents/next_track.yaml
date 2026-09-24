@@ -1,0 +1,12 @@
+id: next_track
+patterns:
+  - "(lagu|musik) (berikutnya|selanjutnya)"
+  - "(ganti|skip|lewati) [lagu|lagunya]"
+  - "next [lagu]"
+slots: {}
+examples:
+  - "lagu berikutnya"
+  - "skip lagunya"
+action: next_track
+confirmation: never
+needs_network: false

@@ -1,0 +1,854 @@
+{
+ "_readme": [
+  "Kontrak router rbitassistant. Router Kotlin (core/router) dan tools/intent_lab.py WAJIB lulus berkas ini.",
+  "expect: id intent, atau 'chat' (= tidak cocok pola mana pun, diteruskan ke tingkat 3/4).",
+  "slots: nilai kanonik setelah resolver. Slot teks berisi teks TERNORMALISASI (lihat docs/intents.md soal teks asli).",
+  "known_gap: true = celah yang disengaja dicatat; pemeriksa GAGAL bila kasus ini tiba-tiba lulus, supaya tandanya dihapus."
+ ],
+ "cases": [
+  {
+   "text": "buka whatsapp",
+   "expect": "open_app",
+   "slots": {
+    "app": "WhatsApp"
+   }
+  },
+  {
+   "text": "tolong buka wa dong",
+   "expect": "open_app",
+   "slots": {
+    "app": "WhatsApp"
+   }
+  },
+  {
+   "text": "buka YouTube",
+   "expect": "open_app",
+   "slots": {
+    "app": "YouTube"
+   }
+  },
+  {
+   "text": "jalankan galeri",
+   "expect": "open_app",
+   "slots": {
+    "app": "Galeri"
+   }
+  },
+  {
+   "text": "buka aplikasi kalkulator",
+   "expect": "open_app",
+   "slots": {
+    "app": "Kalkulator"
+   }
+  },
+  {
+   "text": "mainkan game mobile legends",
+   "expect": "open_app",
+   "slots": {
+    "app": "Mobile Legends"
+   }
+  },
+  {
+   "text": "buka ig",
+   "expect": "open_app",
+   "slots": {
+    "app": "Instagram"
+   }
+  },
+  {
+   "text": "open spotify",
+   "expect": "open_app",
+   "slots": {
+    "app": "Spotify"
+   }
+  },
+  {
+   "text": "cari aplikasi edit video di play store",
+   "expect": "search_play_store",
+   "slots": {
+    "query": "edit video"
+   }
+  },
+  {
+   "text": "download canva",
+   "expect": "search_play_store",
+   "slots": {
+    "query": "canva"
+   }
+  },
+  {
+   "text": "install tiktok",
+   "expect": "search_play_store",
+   "slots": {
+    "query": "tiktok"
+   }
+  },
+  {
+   "text": "unduh aplikasi gojek",
+   "expect": "search_play_store",
+   "slots": {
+    "query": "gojek"
+   }
+  },
+  {
+   "text": "cari game balap di playstore",
+   "expect": "search_play_store",
+   "slots": {
+    "query": "game balap"
+   }
+  },
+  {
+   "text": "telepon ibu",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Ibu"
+   }
+  },
+  {
+   "text": "telpon budi",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Budi Santoso"
+   }
+  },
+  {
+   "text": "hubungi pak joko",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Pak Joko Kantor"
+   }
+  },
+  {
+   "text": "video call mama",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Ibu"
+   }
+  },
+  {
+   "text": "panggil ayah",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Bapak"
+   }
+  },
+  {
+   "text": "kirim sms ke ibu bilang aku pulang telat",
+   "expect": "send_sms",
+   "slots": {
+    "contact": "Ibu",
+    "message": "aku pulang telat"
+   }
+  },
+  {
+   "text": "kirim pesan ke siti isinya jangan lupa bawa buku",
+   "expect": "send_sms",
+   "slots": {
+    "contact": "Siti Rahma",
+    "message": "jangan lupa bawa buku"
+   }
+  },
+  {
+   "text": "sms bapak bilang sudah sampai",
+   "expect": "send_sms",
+   "slots": {
+    "contact": "Bapak",
+    "message": "sudah sampai"
+   }
+  },
+  {
+   "text": "kirim wa ke budi bilang besok rapat jam sembilan",
+   "expect": "send_whatsapp",
+   "slots": {
+    "contact": "Budi Santoso",
+    "message": "besok rapat jam 9"
+   }
+  },
+  {
+   "text": "kirim pesan whatsapp ke ibu isinya aku sudah makan",
+   "expect": "send_whatsapp",
+   "slots": {
+    "contact": "Ibu",
+    "message": "aku sudah makan"
+   }
+  },
+  {
+   "text": "wa siti bilang oke siap",
+   "expect": "send_whatsapp",
+   "slots": {
+    "contact": "Siti Rahma",
+    "message": "oke siap"
+   }
+  },
+  {
+   "text": "setel timer 5 menit",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 5,
+    "unit": "minute"
+   }
+  },
+  {
+   "text": "setel timer lima menit",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 5,
+    "unit": "minute"
+   }
+  },
+  {
+   "text": "timer tiga puluh detik",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 30,
+    "unit": "second"
+   }
+  },
+  {
+   "text": "pasang timer selama dua jam",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 2,
+    "unit": "hour"
+   }
+  },
+  {
+   "text": "hitung mundur sepuluh menit",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 10,
+    "unit": "minute"
+   }
+  },
+  {
+   "text": "tolong nyalakan timer lima belas menit ya",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 15,
+    "unit": "minute"
+   }
+  },
+  {
+   "text": "pasang alarm jam 5 pagi",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "5:00",
+    "period": "pagi"
+   }
+  },
+  {
+   "text": "pasang alarm jam lima pagi",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "5:00",
+    "period": "pagi"
+   }
+  },
+  {
+   "text": "bangunkan saya jam 6.30",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "6:30"
+   }
+  },
+  {
+   "text": "setel alarm pukul tujuh malam",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "7:00",
+    "period": "malam"
+   }
+  },
+  {
+   "text": "pasang alarm",
+   "expect": "set_alarm"
+  },
+  {
+   "text": "bangunin aku besok jam empat",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "4:00"
+   }
+  },
+  {
+   "text": "jam berapa sekarang",
+   "expect": "what_time"
+  },
+  {
+   "text": "sekarang pukul berapa",
+   "expect": "what_time"
+  },
+  {
+   "text": "jam berapa",
+   "expect": "what_time"
+  },
+  {
+   "text": "sekarang jam berapa ya",
+   "expect": "what_time"
+  },
+  {
+   "text": "tanggal berapa hari ini",
+   "expect": "what_date"
+  },
+  {
+   "text": "hari ini hari apa",
+   "expect": "what_date"
+  },
+  {
+   "text": "sekarang tanggal berapa",
+   "expect": "what_date"
+  },
+  {
+   "text": "hari ini tanggal berapa",
+   "expect": "what_date"
+  },
+  {
+   "text": "putar musik",
+   "expect": "play_music"
+  },
+  {
+   "text": "putar lagu",
+   "expect": "play_music"
+  },
+  {
+   "text": "putar lagu dewa 19",
+   "expect": "play_music",
+   "slots": {
+    "query": "dewa 19"
+   }
+  },
+  {
+   "text": "putar lagu dewa sembilan belas",
+   "expect": "play_music",
+   "slots": {
+    "query": "dewa 19"
+   }
+  },
+  {
+   "text": "mainkan lagu noah",
+   "expect": "play_music",
+   "slots": {
+    "query": "noah"
+   }
+  },
+  {
+   "text": "putar sheila on 7 di spotify",
+   "expect": "play_music",
+   "slots": {
+    "query": "sheila on 7"
+   }
+  },
+  {
+   "text": "jeda musik",
+   "expect": "pause_music"
+  },
+  {
+   "text": "stop lagunya",
+   "expect": "pause_music"
+  },
+  {
+   "text": "pause",
+   "expect": "pause_music"
+  },
+  {
+   "text": "matikan musik",
+   "expect": "pause_music"
+  },
+  {
+   "text": "lagu berikutnya",
+   "expect": "next_track"
+  },
+  {
+   "text": "skip lagunya",
+   "expect": "next_track"
+  },
+  {
+   "text": "ganti lagu",
+   "expect": "next_track"
+  },
+  {
+   "text": "next",
+   "expect": "next_track"
+  },
+  {
+   "text": "naikkan volume",
+   "expect": "set_volume",
+   "slots": {
+    "direction": "up"
+   }
+  },
+  {
+   "text": "kecilkan suaranya",
+   "expect": "set_volume",
+   "slots": {
+    "direction": "down"
+   }
+  },
+  {
+   "text": "volume lima puluh persen",
+   "expect": "set_volume",
+   "slots": {
+    "level": 50
+   }
+  },
+  {
+   "text": "volume 50%",
+   "expect": "set_volume",
+   "slots": {
+    "level": 50
+   }
+  },
+  {
+   "text": "atur volume ke 30",
+   "expect": "set_volume",
+   "slots": {
+    "level": 30
+   }
+  },
+  {
+   "text": "tolong pelankan suara",
+   "expect": "set_volume",
+   "slots": {
+    "direction": "down"
+   }
+  },
+  {
+   "text": "nyalakan senter",
+   "expect": "toggle_flashlight",
+   "slots": {
+    "state": "on"
+   }
+  },
+  {
+   "text": "matikan lampu senter",
+   "expect": "toggle_flashlight",
+   "slots": {
+    "state": "off"
+   }
+  },
+  {
+   "text": "senter nyala",
+   "expect": "toggle_flashlight",
+   "slots": {
+    "state": "on"
+   }
+  },
+  {
+   "text": "hidupkan senter dong",
+   "expect": "toggle_flashlight",
+   "slots": {
+    "state": "on"
+   }
+  },
+  {
+   "text": "redupkan layar",
+   "expect": "set_brightness",
+   "slots": {
+    "direction": "down"
+   }
+  },
+  {
+   "text": "atur kecerahan ke 80 persen",
+   "expect": "set_brightness",
+   "slots": {
+    "level": 80
+   }
+  },
+  {
+   "text": "terangkan layar",
+   "expect": "set_brightness",
+   "slots": {
+    "direction": "up"
+   }
+  },
+  {
+   "text": "naikkan kecerahan",
+   "expect": "set_brightness",
+   "slots": {
+    "direction": "up"
+   }
+  },
+  {
+   "text": "buka pengaturan",
+   "expect": "open_settings"
+  },
+  {
+   "text": "buka pengaturan wifi",
+   "expect": "open_settings",
+   "slots": {
+    "page": "wifi"
+   }
+  },
+  {
+   "text": "buka setting bluetooth",
+   "expect": "open_settings",
+   "slots": {
+    "page": "bluetooth"
+   }
+  },
+  {
+   "text": "pengaturan baterai",
+   "expect": "open_settings",
+   "slots": {
+    "page": "battery"
+   }
+  },
+  {
+   "text": "ambil screenshot",
+   "expect": "screenshot"
+  },
+  {
+   "text": "screenshot",
+   "expect": "screenshot"
+  },
+  {
+   "text": "tangkap layar",
+   "expect": "screenshot"
+  },
+  {
+   "text": "ambil tangkapan layar",
+   "expect": "screenshot"
+  },
+  {
+   "text": "cuaca hari ini",
+   "expect": "weather"
+  },
+  {
+   "text": "cuaca di jepara besok",
+   "expect": "weather",
+   "slots": {
+    "place": "jepara"
+   }
+  },
+  {
+   "text": "bagaimana cuaca di semarang",
+   "expect": "weather",
+   "slots": {
+    "place": "semarang"
+   }
+  },
+  {
+   "text": "gimana cuaca hari ini",
+   "expect": "weather"
+  },
+  {
+   "text": "apakah besok hujan",
+   "expect": "weather"
+  },
+  {
+   "text": "cuaca kudus",
+   "expect": "weather",
+   "slots": {
+    "place": "kudus"
+   }
+  },
+  {
+   "text": "cari resep rendang",
+   "expect": "search_web",
+   "slots": {
+    "query": "resep rendang"
+   }
+  },
+  {
+   "text": "googling harga emas",
+   "expect": "search_web",
+   "slots": {
+    "query": "harga emas"
+   }
+  },
+  {
+   "text": "cari di google cara menanam cabai",
+   "expect": "search_web",
+   "slots": {
+    "query": "cara menanam cabai"
+   }
+  },
+  {
+   "text": "carikan berita terbaru",
+   "expect": "search_web",
+   "slots": {
+    "query": "berita terbaru"
+   }
+  },
+  {
+   "text": "navigasi ke alun-alun jepara",
+   "expect": "navigate_to",
+   "slots": {
+    "place": "alun alun jepara"
+   }
+  },
+  {
+   "text": "rute ke pantai kartini",
+   "expect": "navigate_to",
+   "slots": {
+    "place": "pantai kartini"
+   }
+  },
+  {
+   "text": "antar aku ke stasiun semarang tawang",
+   "expect": "navigate_to",
+   "slots": {
+    "place": "stasiun semarang tawang"
+   }
+  },
+  {
+   "text": "tunjukkan jalan ke rumah sakit terdekat",
+   "expect": "navigate_to",
+   "slots": {
+    "place": "rumah sakit terdekat"
+   }
+  },
+  {
+   "text": "batal",
+   "expect": "cancel"
+  },
+  {
+   "text": "gak jadi",
+   "expect": "cancel"
+  },
+  {
+   "text": "batalkan",
+   "expect": "cancel"
+  },
+  {
+   "text": "stop",
+   "expect": "cancel"
+  },
+  {
+   "text": "ulangi",
+   "expect": "repeat"
+  },
+  {
+   "text": "coba ulangi lagi",
+   "expect": "repeat"
+  },
+  {
+   "text": "tadi bilang apa",
+   "expect": "repeat"
+  },
+  {
+   "text": "apa tadi",
+   "expect": "repeat"
+  },
+  {
+   "text": "sudah cukup",
+   "expect": "stop_listening"
+  },
+  {
+   "text": "itu aja",
+   "expect": "stop_listening"
+  },
+  {
+   "text": "selesai",
+   "expect": "stop_listening"
+  },
+  {
+   "text": "udah",
+   "expect": "stop_listening"
+  },
+  {
+   "text": "cukup",
+   "expect": "stop_listening"
+  },
+  {
+   "text": "buka puasa jam berapa",
+   "expect": "chat",
+   "note": "'buka {app}' cocok secara teks, tetapi 'puasa jam berapa' bukan aplikasi"
+  },
+  {
+   "text": "cara buka whatsapp di laptop",
+   "expect": "chat",
+   "note": "pertanyaan tentang perintah, bukan perintah"
+  },
+  {
+   "text": "panggil saya budi",
+   "expect": "chat",
+   "note": "permintaan nama panggilan, bukan menelepon"
+  },
+  {
+   "text": "mainkan game apa yang seru",
+   "expect": "chat",
+   "note": "'mainkan game {app}' tetapi bukan nama aplikasi"
+  },
+  {
+   "text": "apa itu timer",
+   "expect": "chat",
+   "note": "menanyakan definisi"
+  },
+  {
+   "text": "berapa lama timer telur rebus",
+   "expect": "chat",
+   "note": "pertanyaan pengetahuan"
+  },
+  {
+   "text": "kenapa langit berwarna biru",
+   "expect": "chat",
+   "note": "pertanyaan pengetahuan"
+  },
+  {
+   "text": "siapa presiden pertama indonesia",
+   "expect": "chat",
+   "note": "pertanyaan pengetahuan"
+  },
+  {
+   "text": "jelaskan cara kerja alarm kebakaran",
+   "expect": "chat",
+   "note": "mengandung kata 'alarm'"
+  },
+  {
+   "text": "cuaca bagus untuk jalan jalan gak",
+   "expect": "chat",
+   "note": "'cuaca {place}' — place dibatasi 3 kata"
+  },
+  {
+   "text": "lagu apa yang cocok untuk tidur",
+   "expect": "chat",
+   "note": "meminta rekomendasi, bukan memutar"
+  },
+  {
+   "text": "aku sudah makan",
+   "expect": "chat",
+   "note": "mengandung 'sudah'"
+  },
+  {
+   "text": "sudah makan belum",
+   "expect": "chat",
+   "note": "diawali 'sudah'"
+  },
+  {
+   "text": "terima kasih",
+   "expect": "chat",
+   "note": "basa-basi; dijawab chatbot"
+  },
+  {
+   "text": "halo",
+   "expect": "chat",
+   "note": "sapaan; pengisi tidak boleh mengosongkan ucapan"
+  },
+  {
+   "text": "apa kabar",
+   "expect": "chat",
+   "note": "basa-basi"
+  },
+  {
+   "text": "buatkan puisi tentang laut",
+   "expect": "chat",
+   "note": "tugas generatif"
+  },
+  {
+   "text": "hitung 25 kali 4",
+   "expect": "chat",
+   "note": "aritmetika dijawab chatbot"
+  },
+  {
+   "text": "bagaimana cara mengatur volume di tv",
+   "expect": "chat",
+   "note": "mengandung 'volume'"
+  },
+  {
+   "text": "stop merokok bagaimana caranya",
+   "expect": "chat",
+   "note": "diawali 'stop'"
+  },
+  {
+   "text": "jam berapa matahari terbenam di jepara",
+   "expect": "chat",
+   "note": "diawali 'jam berapa'"
+  },
+  {
+   "text": "telepon genggam pertama dibuat tahun berapa",
+   "expect": "chat",
+   "note": "diawali 'telepon'"
+  },
+  {
+   "text": "timer setengah jam",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 30,
+    "unit": "minute"
+   },
+   "known_gap": true,
+   "note": "'setengah' belum ditangani normalisasi"
+  },
+  {
+   "text": "bangunkan saya jam setengah tujuh",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "6:30"
+   },
+   "known_gap": true,
+   "note": "'setengah tujuh' = 6:30, idiom Indonesia"
+  },
+  {
+   "text": "besok pagi jam lima bangunkan aku",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "5:00",
+    "period": "pagi"
+   },
+   "known_gap": true,
+   "note": "urutan kata terbalik"
+  },
+  {
+   "text": "putar despacito",
+   "expect": "play_music",
+   "slots": {
+    "query": "despacito"
+   },
+   "known_gap": true,
+   "note": "tanpa kata 'lagu'/'musik' judul tidak bisa dibedakan; butuh LLM"
+  },
+  {
+   "text": "buka watsap",
+   "expect": "open_app",
+   "slots": {
+    "app": "WhatsApp"
+   },
+   "known_gap": true,
+   "note": "salah eja/dengar; tugas resolver fuzzy"
+  },
+  {
+   "text": "telepon mama saya",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Ibu"
+   },
+   "known_gap": true,
+   "note": "'mama saya' bukan alias persis; tugas fuzzy"
+  },
+  {
+   "text": "kecilin suaranya",
+   "expect": "set_volume",
+   "slots": {
+    "direction": "down"
+   },
+   "known_gap": true,
+   "note": "akhiran -in bahasa percakapan"
+  },
+  {
+   "text": "tolong matiin senternya",
+   "expect": "toggle_flashlight",
+   "slots": {
+    "state": "off"
+   },
+   "known_gap": true,
+   "note": "akhiran -in dan -nya"
+  },
+  {
+   "text": "kirim pesan ke ibu aku pulang telat",
+   "expect": "send_sms",
+   "slots": {
+    "contact": "Ibu",
+    "message": "aku pulang telat"
+   },
+   "known_gap": true,
+   "note": "tanpa 'bilang'/'isinya' batas kontak-pesan tidak jelas"
+  },
+  {
+   "text": "download lagu gratis dimana",
+   "expect": "chat",
+   "known_gap": true,
+   "note": "SALAH POSITIF: terbaca search_play_store; pertanyaan berbentuk perintah perlu tingkat 4"
+  }
+ ]
+}

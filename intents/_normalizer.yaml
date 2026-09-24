@@ -1,0 +1,96 @@
+# Data normalisasi untuk router tingkat 1 (docs/architecture.md §4.5).
+#
+# Dibaca oleh DUA implementasi yang harus berperilaku identik:
+#   - tools/intent_lab.py      (spesifikasi yang bisa dijalankan, Python)
+#   - core/router (Kotlin)     (kode produksi, belum ditulis)
+# Kontraknya: keduanya wajib lulus testdata/golden_intents.json.
+#
+# Urutan langkah normalisasi (lihat docs/intents.md):
+#   1. huruf kecil
+#   2. "%" -> " persen"; jam "6.30"/"6:30" -> "6:30"
+#   3. selain huruf, angka, ":" dan spasi -> spasi; rapatkan spasi
+#   4. ganti singkatan per kata (abbreviations)
+#   5. kata bilangan -> angka ("dua puluh lima" -> "25")
+#   6. buang kata pengisi di awal (prefix_fillers) dan di akhir (suffix_fillers), berulang
+#
+# PENTING: teks hasil normalisasi hanya dipakai untuk MENCOCOKKAN pola.
+# Bila ucapan diteruskan ke chatbot, yang dikirim adalah teks ASLI.
+
+abbreviations:
+  yg: yang
+  wa: whatsapp
+  wasap: whatsapp
+  whatsap: whatsapp
+  telpon: telepon
+  telp: telepon
+  tlp: telepon
+  gak: tidak
+  ga: tidak
+  nggak: tidak
+  ngga: tidak
+  enggak: tidak
+  engga: tidak
+  gk: tidak
+  tdk: tidak
+  gimana: bagaimana
+  gmn: bagaimana
+  udah: sudah
+  udh: sudah
+  sdh: sudah
+  aja: saja
+  playstore: play store
+  setting: pengaturan
+  settings: pengaturan
+  setelan: pengaturan
+  pause: jeda
+  lampu senter: senter
+
+# Kata pengisi yang dibuang dari AWAL ucapan (berulang, frasa terpanjang dulu).
+prefix_fillers:
+  - tolong
+  - coba
+  - bisa tidak
+  - bisakah
+  - bisa
+  - minta
+  - mohon
+  - please
+  - hei
+  - hai
+  - halo
+  - oke
+  - ok
+  - kamu
+
+# Kata pengisi yang dibuang dari AKHIR ucapan (berulang, frasa terpanjang dulu).
+suffix_fillers:
+  - dong
+  - ya
+  - yah
+  - deh
+  - sih
+  - please
+  - donk
+
+# Kata bilangan. Algoritmanya ada di docs/intents.md §Bilangan.
+numbers:
+  units:
+    nol: 0
+    satu: 1
+    dua: 2
+    tiga: 3
+    empat: 4
+    lima: 5
+    enam: 6
+    tujuh: 7
+    delapan: 8
+    sembilan: 9
+    sepuluh: 10
+    sebelas: 11
+    seratus: 100
+    seribu: 1000
+  multipliers:
+    belas: 10     # "tiga belas" = 3 + 10
+    puluh: 10     # "tiga puluh" = 3 x 10
+    ratus: 100
+    ribu: 1000
