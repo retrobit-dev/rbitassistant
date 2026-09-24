@@ -1,0 +1,101 @@
+name: android
+
+on:
+  push:
+    branches: [arena/01a0d31f-rbitassistant, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # untuk membuat GitHub Release berisi APK
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pemeriksa dokumen & katalog (Python)
+        run: |
+          pip install -q pyyaml
+          python tools/check_docs.py
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Kunci tanda tangan dari secret (opsional)
+        env:
+          KS_B64: ${{ secrets.RBIT_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.RBIT_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.RBIT_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RBIT_KEY_ALIAS }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/rbit.p12"
+            {
+              echo "RBIT_KEYSTORE_PATH=$RUNNER_TEMP/rbit.p12"
+              echo "RBIT_KEYSTORE_PASSWORD=$KS_PASS"
+              echo "RBIT_KEY_PASSWORD=${KEY_PASS:-$KS_PASS}"
+              echo "RBIT_KEY_ALIAS=${KEY_ALIAS:-rbitassistant}"
+            } >> "$GITHUB_ENV"
+            echo "::notice title=Tanda tangan::memakai kunci dari GitHub Secrets"
+          else
+            echo "::warning title=Tanda tangan::memakai kunci DEV publik (app/signing/README.md)"
+          fi
+
+      - name: Tes router + build APK
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace testDebugUnitTest assembleRelease 2>&1 | tee build.log
+
+      - name: Laporkan galat sebagai annotation
+        if: failure()
+        run: python .github/scripts/annotate.py build.log
+
+      - name: Siapkan APK
+        id: apk
+        run: |
+          name="rbitassistant-0.1.${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum "$name" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$name" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.name }}
+
+      - name: Terbitkan sebagai GitHub Release (pra-rilis)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK: ${{ steps.apk.outputs.name }}
+          SHA: ${{ steps.apk.outputs.sha }}
+          SIZE: ${{ steps.apk.outputs.size }}
+        run: |
+          tag="v0.1.${{ github.run_number }}"
+          {
+            echo "APK uji untuk Infinix GT 30 Pro (Android 15), dibangun otomatis dari commit ${GITHUB_SHA}."
+            echo
+            echo "**Cara pasang:** unduh \`$APK\` di HP, buka, izinkan \"Instal aplikasi tidak dikenal\" untuk browser/File Manager, lalu Instal."
+            echo
+            echo "- Ukuran: $SIZE"
+            echo "- SHA-256: \`$SHA\`"
+          } > notes.md
+          gh release create "$tag" "$APK" --target "$GITHUB_SHA" --prerelease \
+            --title "Rbit Asisten 0.1.${{ github.run_number }}" --notes-file notes.md
+          echo "::notice title=APK siap::https://github.com/${GITHUB_REPOSITORY}/releases/tag/$tag"

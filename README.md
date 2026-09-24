@@ -6,7 +6,25 @@ Ditujukan pertama-tama untuk **Infinix GT 30 Pro** (Android 15 / XOS 15, Dimensi
 
 ## Status
 
-Rencana arsitektur. **Belum ada kode aplikasi** — repo baru berisi dokumen.
+**v0.1 (Fase 1 MVP)**: aplikasi Android pertama sudah ada di [`app/`](app/). APK dibangun otomatis oleh GitHub Actions dan diterbitkan di halaman **Releases** repo ini.
+
+## Memasang APK di HP
+
+1. Di HP, buka `github.com/retrobit-dev/rbitassistant/releases`, lalu unduh `rbitassistant-0.1.N.apk` terbaru.
+2. Buka berkasnya. Bila diminta, izinkan **Instal aplikasi tidak dikenal** untuk Chrome/File Manager. XOS mungkin memperingatkan aplikasi dari luar Play Store; pilih tetap pasang.
+3. Buka **Rbit Asisten**, izinkan **Mikrofon** dan **Kontak**.
+4. **Pengaturan → API key Gemini**: tempel key gratis dari aistudio.google.com agar pertanyaan bisa dijawab. Tanpa key, perintah tetap jalan.
+5. Pembaruan: pasang APK yang lebih baru di atasnya (tidak perlu copot). Tanda tangan APK dijelaskan di [`app/signing/README.md`](app/signing/README.md).
+
+Isi v0.1:
+
+- Tombol bicara (ASR Google bahasa Indonesia; on-device bila offline) dan kolom ketik.
+- 23 perintah dari [`intents/`](intents/). Router Kotlin lulus golden set yang sama dengan `tools/intent_lab.py` (diuji di CI).
+- Chatbot Gemini (streaming) dengan circuit breaker. Saat offline, pertanyaan dijawab dengan pesan "belum bisa offline". LLM offline (ADR 0003) menyusul di Fase 3.
+- Cuaca dari Open-Meteo (gratis, tanpa key), kota default Jepara.
+- Panel **Diagnostik** di Pengaturan untuk menjawab pertanyaan Fase 0 (ASR on-device, suara TTS offline, jumlah aplikasi/kontak).
+
+Belum ada di v0.1: wake word, tangkapan layar, LLM offline, teks pesan dengan huruf asli (pesan SMS/WA dikirim dalam bentuk ternormalisasi: huruf kecil, angka).
 
 ## Baca dulu
 

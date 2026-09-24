@@ -15,3 +15,6 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+
+# APK hasil build (diterbitkan lewat GitHub Releases, bukan di-commit)
+*.apk

@@ -329,6 +329,9 @@ def load_catalog(norm: Normalizer) -> list[Intent]:
 
         slots: dict[str, Slot] = {}
         for name, spec in (data["slots"] or {}).items():
+            # Router Kotlin memakai named group Java, yang tidak menerima '_'.
+            if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9]*", name):
+                raise CatalogError(f"{rel}: nama slot {name!r} harus [a-z][a-z0-9]* (named group Java)")
             stype = spec.get("type")
             if stype not in SLOT_TYPES:
                 raise CatalogError(f"{rel}: slot '{name}' bertipe '{stype}', harus salah satu {sorted(SLOT_TYPES)}")

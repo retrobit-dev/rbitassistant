@@ -1,9 +1,0 @@
-name: probe
-on:
-  push:
-    branches: [arena/01a0d31f-rbitassistant]
-jobs:
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "java:$(java -version 2>&1 | head -1)"; echo "ANDROID_HOME=$ANDROID_HOME"; ls $ANDROID_HOME/build-tools | tail -3
