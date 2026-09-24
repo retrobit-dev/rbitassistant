@@ -20,6 +20,7 @@ jobs:
       apk: ${{ steps.apk.outputs.name }}
       sha: ${{ steps.apk.outputs.sha }}
       size: ${{ steps.apk.outputs.size }}
+      version: ${{ steps.apk.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +74,10 @@ jobs:
       - name: Siapkan APK
         id: apk
         run: |
-          name="rbitassistant-0.1.${{ github.run_number }}.apk"
+          prefix=$(grep -oP 'val versionPrefix = "\K[^"]+' app/build.gradle.kts)
+          version="$prefix.${{ github.run_number }}"
+          name="rbitassistant-$version.apk"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           cp app/build/outputs/apk/release/app-release.apk "$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "sha=$(sha256sum "$name" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
@@ -126,7 +130,7 @@ jobs:
           SHA: ${{ needs.build.outputs.sha }}
           SIZE: ${{ needs.build.outputs.size }}
         run: |
-          tag="v0.1.${{ github.run_number }}"
+          tag="v${{ needs.build.outputs.version }}"
           {
             echo "APK uji untuk Infinix GT 30 Pro (Android 15), dibangun otomatis dari commit ${GITHUB_SHA}."
             echo
@@ -136,5 +140,5 @@ jobs:
             echo "- SHA-256: \`$SHA\`"
           } > notes.md
           gh release create "$tag" "$APK" --target "$GITHUB_SHA" --prerelease \
-            --title "Rbit Asisten 0.1.${{ github.run_number }}" --notes-file notes.md
+            --title "Rbit Asisten ${{ needs.build.outputs.version }}" --notes-file notes.md
           echo "::notice title=APK siap::https://github.com/${GITHUB_REPOSITORY}/releases/tag/$tag"

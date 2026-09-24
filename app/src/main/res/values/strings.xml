@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Rbit Asisten</string>
+    <string name="shortcut_listen">Bicara</string>
+    <string name="tile_label">Rbit: bicara</string>
+    <string name="widget_label">Bicara ke Rbit</string>
+    <string name="widget_description">Satu ketukan untuk mulai bicara ke Rbit Asisten</string>
 </resources>

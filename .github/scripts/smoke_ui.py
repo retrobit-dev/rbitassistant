@@ -46,8 +46,9 @@ def center(node: ET.Element) -> tuple[int, int]:
 
 
 def tap_text(root: ET.Element, text: str) -> bool:
+    """Ketuk elemen dengan teks ATAU content-desc (tombol ikon) tertentu."""
     for n in root.iter("node"):
-        if n.get("text") == text:
+        if n.get("text") == text or n.get("content-desc") == text:
             x, y = center(n)
             sh("shell", "input", "tap", str(x), str(y))
             return True
@@ -85,6 +86,14 @@ def main() -> int:
     else:
         root = dump()
         t = texts(root)
+        if "Selamat datang di Rbit Asisten" in t:
+            report.append("Layar sambutan tampil")
+            tap_text(root, "Lewati")
+            time.sleep(3)
+            root = dump()
+            t = texts(root)
+        else:
+            problems.append("layar sambutan tidak tampil pada pemasangan baru")
         report.append("Layar utama: " + " | ".join(x[:60] for x in t[:8]))
         if "Rbit Asisten" not in t:
             problems.append("judul 'Rbit Asisten' tidak tampil")

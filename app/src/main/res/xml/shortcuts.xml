@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_mic_white"
+        android:shortcutId="listen"
+        android:shortcutShortLabel="@string/shortcut_listen">
+        <intent
+            android:action="dev.retrobit.assistant.LISTEN"
+            android:targetClass="dev.retrobit.assistant.MainActivity"
+            android:targetPackage="dev.retrobit.assistant" />
+    </shortcut>
+</shortcuts>

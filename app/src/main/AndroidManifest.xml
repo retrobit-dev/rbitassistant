@@ -45,6 +45,40 @@
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Dipakai tile, widget, dan pintasan: buka lalu langsung mendengarkan -->
+            <intent-filter>
+                <action android:name="dev.retrobit.assistant.LISTEN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <service
+            android:name=".launch.ListenTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_mic"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="false" />
+        </service>
+
+        <receiver
+            android:name=".launch.ListenWidget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
     </application>
 </manifest>

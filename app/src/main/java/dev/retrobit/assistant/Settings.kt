@@ -49,6 +49,16 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("speak", true)
         set(v) = prefs.edit().putBoolean("speak", v).apply()
 
+    /** Sudah melewati layar sambutan. */
+    var onboarded: Boolean
+        get() = prefs.getBoolean("onboarded", false)
+        set(v) = prefs.edit().putBoolean("onboarded", v).apply()
+
+    /** Setelah menjawab pertanyaan lisan, langsung mendengarkan lagi (tanpa menekan tombol). */
+    var conversationMode: Boolean
+        get() = prefs.getBoolean("conversation", true)
+        set(v) = prefs.edit().putBoolean("conversation", v).apply()
+
     companion object {
         const val DEFAULT_MODEL = "gemini-3.8-flash"
     }

@@ -16,7 +16,7 @@ class AsrController(private val context: Context, private val listener: Listener
         fun onReady()
         fun onPartial(text: String)
         fun onFinal(text: String)
-        fun onAsrError(message: String)
+        fun onAsrError(message: String, code: Int)
         fun onLevel(rmsDb: Float) {}
     }
 
@@ -43,10 +43,10 @@ class AsrController(private val context: Context, private val listener: Listener
             override fun onRmsChanged(rmsdB: Float) = listener.onLevel(rmsdB)
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onError(error: Int) = listener.onAsrError(describe(error, onDevice))
+            override fun onError(error: Int) = listener.onAsrError(describe(error, onDevice), error)
             override fun onResults(results: Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                if (text.isBlank()) listener.onAsrError("Tidak ada ucapan yang dikenali.") else listener.onFinal(text)
+                if (text.isBlank()) listener.onAsrError("Tidak ada ucapan yang dikenali.", SpeechRecognizer.ERROR_NO_MATCH) else listener.onFinal(text)
             }
             override fun onPartialResults(partialResults: Bundle?) {
                 partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()

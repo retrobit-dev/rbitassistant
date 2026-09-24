@@ -1,10 +1,19 @@
 package dev.retrobit.assistant.ui
 
 import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,14 +35,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,143 +58,277 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import dev.retrobit.assistant.AssistantViewModel
 import dev.retrobit.assistant.BuildConfig
 import dev.retrobit.assistant.ChatMessage
 import dev.retrobit.assistant.MainActivity
 import dev.retrobit.assistant.Phase
+import dev.retrobit.assistant.R
 import dev.retrobit.assistant.Role
 
+private val EXAMPLES = listOf(
+    "Buka YouTube",
+    "Timer lima menit",
+    "Cuaca besok",
+    "Nyalakan senter",
+    "Siapa presiden pertama Indonesia?",
+)
+
 @Composable
-fun AssistantApp(vm: AssistantViewModel = viewModel()) {
+fun AssistantApp(vm: AssistantViewModel) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         vm.onPermissionsResult(res[Manifest.permission.RECORD_AUDIO] == true)
     }
-    LaunchedEffect(Unit) { launcher.launch(MainActivity.PERMISSIONS) }
+    LaunchedEffect(vm.onboarded) {
+        if (vm.onboarded) launcher.launch(MainActivity.PERMISSIONS)
+    }
 
     Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-        if (showSettings) {
-            BackHandler { showSettings = false }
-            SettingsScreen(vm) { showSettings = false }
-        } else {
-            MainScreen(vm) { showSettings = true }
+        when {
+            !vm.onboarded -> OnboardingScreen { key -> vm.finishOnboarding(key) }
+            showSettings -> {
+                BackHandler { showSettings = false }
+                SettingsScreen(vm) { showSettings = false }
+            }
+            else -> MainScreen(vm, openSettings = { showSettings = true }, requestMic = { launcher.launch(MainActivity.PERMISSIONS) })
         }
     }
 }
 
 @Composable
-private fun MainScreen(vm: AssistantViewModel, openSettings: () -> Unit) {
+private fun MainScreen(vm: AssistantViewModel, openSettings: () -> Unit, requestMic: () -> Unit) {
+    val ctx = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val clipboard = LocalClipboardManager.current
     val listState = rememberLazyListState()
     LaunchedEffect(vm.messages.size, vm.messages.lastOrNull()?.text?.length) {
         if (vm.messages.isNotEmpty()) listState.animateScrollToItem(vm.messages.size - 1)
     }
+
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // ---- kepala
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Rbit Asisten", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.size(8.dp))
-            StatusChip(if (vm.settings.alwaysOffline) "selalu offline" else if (vm.online) "online" else "offline", vm.online && !vm.settings.alwaysOffline)
+            Spacer(Modifier.size(10.dp))
+            val good = vm.online && !vm.settings.alwaysOffline
+            Box(
+                Modifier.size(8.dp).background(
+                    if (good) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, CircleShape,
+                ),
+            )
+            Spacer(Modifier.size(4.dp))
+            Text(
+                if (vm.settings.alwaysOffline) "selalu offline" else if (vm.online) "online" else "offline",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = openSettings) { Text("Pengaturan") }
+            IconButton(onClick = openSettings) {
+                Icon(painterResource(R.drawable.ic_settings), contentDescription = "Pengaturan")
+            }
         }
         vm.catalogError?.let { Banner("Katalog perintah gagal dimuat: $it") }
         if (vm.apiKeyMissing) {
-            Banner("Isi API key Gemini (gratis dari aistudio.google.com) di Pengaturan agar pertanyaan bisa dijawab. Perintah tetap jalan tanpa API key.")
+            Banner("Pertanyaan belum bisa dijawab: API key Gemini belum diisi. Ketuk untuk mengisi.", onClick = openSettings)
         }
 
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(vm.messages, key = { it.id }) { Bubble(it) }
-        }
-
-        if (vm.partial.isNotBlank()) {
-            Text("“${vm.partial}”", Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.primary)
-        }
-        vm.pendingPrompt?.let { prompt ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(prompt)
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { vm.confirmPending(true) }) { Text("Ya") }
-                        OutlinedButton(onClick = { vm.confirmPending(false) }) { Text("Batal") }
+        // ---- isi
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (vm.messages.isEmpty()) {
+                EmptyState { vm.submit(it) }
+            } else {
+                LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { Spacer(Modifier.height(4.dp)) }
+                    items(vm.messages, key = { it.id }) { m ->
+                        Bubble(m, onLongPress = {
+                            clipboard.setText(AnnotatedString(m.text))
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.showNotice("Disalin")
+                        })
                     }
                 }
             }
         }
 
-        var typed by rememberSaveable { mutableStateOf("") }
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = typed,
-                onValueChange = { typed = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("atau ketik di sini…") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { vm.submit(typed); typed = "" }),
+        // ---- transkrip & pemberitahuan
+        AnimatedVisibility(vm.partial.isNotBlank()) {
+            Text(
+                vm.partial,
+                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.size(6.dp))
-            TextButton(onClick = { vm.submit(typed); typed = "" }, enabled = typed.isNotBlank()) { Text("Kirim") }
+        }
+        AnimatedVisibility(vm.notice != null) {
+            Text(
+                vm.notice.orEmpty(),
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
+        vm.pendingPrompt?.let { prompt ->
+            Card(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text(prompt, fontWeight = FontWeight.Medium)
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { vm.confirmPending(true) }) {
+                            Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.size(6.dp))
+                            Text("Ya")
+                        }
+                        OutlinedButton(onClick = { vm.confirmPending(false) }) {
+                            Icon(painterResource(R.drawable.ic_close), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.size(6.dp))
+                            Text("Batal")
+                        }
+                    }
+                }
+            }
         }
 
-        Box(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentAlignment = Alignment.Center) {
-            val (label, action) = when (vm.phase) {
-                Phase.LISTENING -> "Mendengarkan…\nketuk untuk berhenti" to vm::stopListening
-                Phase.THINKING -> "Memproses…" to vm::startListening
-                Phase.SPEAKING -> "Berbicara…\nketuk untuk memotong" to vm::startListening
-                Phase.IDLE -> "Tekan\nuntuk bicara" to vm::startListening
+        // ---- kolom ketik
+        var typed by rememberSaveable { mutableStateOf("") }
+        val send = {
+            if (typed.isNotBlank()) {
+                vm.submit(typed)
+                typed = ""
             }
-            Button(
-                onClick = action,
-                modifier = Modifier.size(120.dp),
-                shape = CircleShape,
-                colors = if (vm.phase == Phase.LISTENING) {
-                    ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                } else {
-                    ButtonDefaults.buttonColors()
-                },
-            ) { Text(label, fontSize = 14.sp, lineHeight = 16.sp) }
+        }
+        OutlinedTextField(
+            value = typed,
+            onValueChange = { typed = it },
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            placeholder = { Text("Ketik perintah atau pertanyaan…") },
+            singleLine = true,
+            shape = RoundedCornerShape(24.dp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { send() }),
+            trailingIcon = {
+                IconButton(onClick = send, enabled = typed.isNotBlank()) {
+                    Icon(painterResource(R.drawable.ic_send), contentDescription = "Kirim")
+                }
+            },
+        )
+
+        // ---- tombol bicara
+        MicButton(
+            phase = vm.phase,
+            level = vm.level,
+            followUp = vm.followUpListening,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                when (vm.phase) {
+                    Phase.IDLE -> {
+                        val granted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
+                            PackageManager.PERMISSION_GRANTED
+                        if (granted) vm.startListening() else requestMic()
+                    }
+                    Phase.LISTENING -> vm.stopListening()
+                    Phase.THINKING, Phase.SPEAKING -> vm.stopAll()
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EmptyState(onExample: (String) -> Unit) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Halo! Ada yang bisa dibantu?", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Ketuk mikrofon lalu bicara, atau coba salah satu:",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        for (e in EXAMPLES) {
+            SuggestionChip(onClick = { onExample(e) }, label = { Text(e) })
         }
     }
 }
 
 @Composable
-private fun StatusChip(text: String, good: Boolean) {
-    val bg = if (good) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-    Text(text, Modifier.background(bg, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp), fontSize = 12.sp)
-}
-
-@Composable
-private fun Banner(text: String) {
+private fun Banner(text: String, onClick: (() -> Unit)? = null) {
     Card(
-        Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).let { if (onClick != null) it.clickable(onClick = onClick) else it },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
     ) { Text(text, Modifier.padding(10.dp), fontSize = 13.sp) }
 }
 
 @Composable
-private fun Bubble(m: ChatMessage) {
+private fun Bubble(m: ChatMessage, onLongPress: () -> Unit) {
     val mine = m.role == Role.USER
+    val shape = if (mine) {
+        RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
+    } else {
+        RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
         Column(
             Modifier
-                .widthIn(max = 320.dp)
+                .widthIn(max = 340.dp)
                 .background(
                     if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(14.dp),
+                    shape,
                 )
-                .padding(10.dp),
+                .pointerInput(m.text) { detectTapGestures(onLongPress = { onLongPress() }) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            if (!mine && m.origin.isNotEmpty()) {
-                Text(m.origin, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (m.text.isEmpty()) {
+                TypingDots()
+            } else {
+                Text(m.text)
             }
-            Text(m.text)
+            if (m.origin == "offline") {
+                Text("offline", fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypingDots() {
+    val t by rememberInfiniteTransition(label = "dots").animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Restart),
+        label = "dotsValue",
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (i in 0 until 3) {
+            Box(
+                Modifier.size(8.dp)
+                    .alpha(if (t.toInt() == i) 1f else 0.3f)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
+            )
         }
     }
 }
@@ -190,6 +336,7 @@ private fun Bubble(m: ChatMessage) {
 @Composable
 private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
     val s = vm.settings
+    val uri = LocalUriHandler.current
     var apiKey by remember { mutableStateOf(s.apiKey) }
     var showKey by remember { mutableStateOf(false) }
     var model by remember { mutableStateOf(s.model) }
@@ -198,47 +345,78 @@ private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
     var city by remember { mutableStateOf(s.city) }
     var auto by remember { mutableStateOf(s.autoListen) }
     var speak by remember { mutableStateOf(s.speakReplies) }
+    var conversation by remember { mutableStateOf(s.conversationMode) }
+    var confirmClear by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Hapus riwayat chat?") },
+            text = { Text("Semua percakapan di HP ini akan dihapus.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.clearHistory()
+                    confirmClear = false
+                    close()
+                }) { Text("Hapus") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Batal") } },
+        )
+    }
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Pengaturan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = close) { Text("Tutup") }
+            IconButton(onClick = close) { Icon(painterResource(R.drawable.ic_close), contentDescription = "Tutup") }
         }
+
+        SectionTitle("Gemini")
         OutlinedTextField(
             value = apiKey, onValueChange = { apiKey = it }, modifier = Modifier.fillMaxWidth(),
             label = { Text("API key Gemini") }, singleLine = true,
             visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = { TextButton(onClick = { showKey = !showKey }) { Text(if (showKey) "Sembunyikan" else "Lihat") } },
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(checked = showKey, onCheckedChange = { showKey = it })
-            Spacer(Modifier.size(8.dp))
-            Text("Tampilkan API key", fontSize = 13.sp)
-        }
-        Text(
-            "Ambil gratis di aistudio.google.com → Get API key. Disimpan terenkripsi di HP ini saja.",
-            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        OutlinedButton(onClick = { uri.openUri(API_KEY_URL) }) { Text("Dapatkan API key gratis") }
         OutlinedTextField(
             value = model, onValueChange = { model = it }, modifier = Modifier.fillMaxWidth(),
             label = { Text("Model Gemini") }, singleLine = true,
             supportingText = { Text("Ganti bila Google mengganti nama model (galat 404).") },
         )
+        ToggleRow("Google Search grounding", "Jawaban memakai hasil pencarian terbaru. Kuota gratisnya kecil.", grounding) { grounding = it }
+        ToggleRow("Selalu offline", "Tidak pernah memakai Gemini.", offline) { offline = it }
+
+        SectionTitle("Percakapan")
+        ToggleRow("Mode percakapan", "Setelah menjawab pertanyaan lisan, langsung mendengarkan lagi.", conversation) { conversation = it }
+        ToggleRow("Mendengarkan saat aplikasi dibuka", null, auto) { auto = it }
+        ToggleRow("Ucapkan jawaban", null, speak) { speak = it }
         OutlinedTextField(
             value = city, onValueChange = { city = it }, modifier = Modifier.fillMaxWidth(),
             label = { Text("Kota default untuk cuaca") }, singleLine = true,
         )
-        ToggleRow("Selalu offline (tidak memakai Gemini)", offline) { offline = it }
-        ToggleRow("Google Search grounding (kuota gratis kecil)", grounding) { grounding = it }
-        ToggleRow("Langsung mendengarkan saat aplikasi dibuka", auto) { auto = it }
-        ToggleRow("Ucapkan jawaban (TTS)", speak) { speak = it }
+
         Button(onClick = {
-            vm.saveSettings(apiKey, model, grounding, offline, city, auto, speak)
+            vm.saveSettings(apiKey, model, grounding, offline, city, auto, speak, conversation)
             close()
-        }, modifier = Modifier.fillMaxWidth()) { Text("Simpan") }
+        }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Simpan") }
+
+        SectionTitle("Akses cepat")
+        Text(
+            "• Tile: tarik panel notifikasi → ikon pensil → seret \"Rbit: bicara\".\n" +
+                "• Widget: tekan lama layar utama → Widget → Rbit Asisten.\n" +
+                "• Pintasan: tekan lama ikon aplikasi → Bicara.",
+            fontSize = 13.sp,
+        )
+
+        SectionTitle("Data")
+        OutlinedButton(onClick = { confirmClear = true }) { Text("Hapus riwayat chat") }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Text("Diagnostik (Fase 0)", fontWeight = FontWeight.Bold)
+        Text("Diagnostik", fontWeight = FontWeight.Bold)
         Text(
             listOf(
                 "Versi ${BuildConfig.VERSION_NAME}",
@@ -258,9 +436,22 @@ private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        Modifier.padding(top = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+    )
+}
+
+@Composable
+private fun ToggleRow(label: String, hint: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(label)
+            if (hint != null) Text(hint, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }

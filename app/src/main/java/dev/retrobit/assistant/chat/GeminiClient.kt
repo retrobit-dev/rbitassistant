@@ -18,6 +18,14 @@ data class Turn(val role: String, val text: String) // role: "user" | "model"
  * dan perilakunya terlihat jelas.
  */
 class GeminiClient {
+    @Volatile
+    private var active: HttpURLConnection? = null
+
+    /** Tombol "berhenti": memutus koneksi membuat readLine() yang sedang menunggu langsung gagal. */
+    fun abort() {
+        active?.disconnect()
+    }
+
     fun stream(
         apiKey: String,
         model: String,
@@ -44,6 +52,7 @@ class GeminiClient {
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
             setRequestProperty("x-goog-api-key", apiKey)
         }
+        active = conn
         try {
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
@@ -68,6 +77,7 @@ class GeminiClient {
                 }
             }
         } finally {
+            if (active === conn) active = null
             conn.disconnect()
         }
     }.flowOn(Dispatchers.IO)
