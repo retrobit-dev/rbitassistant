@@ -106,12 +106,24 @@ def main() -> int:
             if "API key Gemini" not in texts(dump()):
                 problems.append("layar Pengaturan tidak terbuka")
             diag: list[str] = []
-            for _ in range(4):  # panel Diagnostik ada di bawah; uiautomator hanya melihat yang tampil
-                diag = [x for x in texts(dump()) if x.startswith("Versi")]
+            seen_settings: list[str] = []
+            for _ in range(6):  # panel Diagnostik ada di bawah; uiautomator hanya melihat yang tampil
+                root = dump()
+                t = texts(root)
+                seen_settings += [x for x in t if x not in seen_settings]
+                diag = [x for x in t if "Versi 0." in x]
                 if diag:
                     break
-                sh("shell", "input", "swipe", "540", "1600", "540", "400", "300")
+                scroll = next((n for n in root.iter("node") if n.get("scrollable") == "true"), None)
+                if scroll is None:
+                    break
+                x1, y1, x2, y2 = map(int, re.findall(r"\d+", scroll.get("bounds")))
+                cx = (x1 + x2) // 2
+                sh("shell", "input", "swipe", str(cx), str(y1 + (y2 - y1) * 4 // 5), str(cx), str(y1 + (y2 - y1) // 5), "400")
                 time.sleep(1)
+            if not diag:
+                report.append("Teks di Pengaturan: " + " | ".join(x[:40] for x in seen_settings))
+            report.append("Layar: " + sh("shell", "wm", "size").strip())
             report.append("Diagnostik emulator:\n" + (diag[0] if diag else "(tidak tampil)"))
             if not diag:
                 problems.append("panel Diagnostik tidak tampil")
