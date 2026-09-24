@@ -55,6 +55,22 @@ def tap_text(root: ET.Element, text: str) -> bool:
     return False
 
 
+def scroll_tap(text: str, tries: int = 5) -> bool:
+    """Seperti tap_text, tetapi menggulir elemen scrollable bila teks belum terlihat."""
+    for _ in range(tries):
+        root = dump()
+        if tap_text(root, text):
+            return True
+        scroll = next((n for n in root.iter("node") if n.get("scrollable") == "true"), None)
+        if scroll is None:
+            return False
+        x1, y1, x2, y2 = map(int, re.findall(r"\d+", scroll.get("bounds")))
+        cx = (x1 + x2) // 2
+        sh("shell", "input", "swipe", str(cx), str(y1 + (y2 - y1) * 4 // 5), str(cx), str(y1 + (y2 - y1) // 5), "400")
+        time.sleep(1)
+    return False
+
+
 def alive() -> bool:
     return bool(sh("shell", "pidof", PKG).strip())
 
@@ -88,7 +104,8 @@ def main() -> int:
         t = texts(root)
         if "Selamat datang di Rbit Asisten" in t:
             report.append("Layar sambutan tampil")
-            tap_text(root, "Lewati")
+            if not scroll_tap("Lewati"):
+                problems.append("tombol Lewati tidak ditemukan")
             time.sleep(3)
             root = dump()
             t = texts(root)

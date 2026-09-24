@@ -44,8 +44,9 @@ fun OnboardingScreen(onDone: (apiKey: String) -> Unit) {
     val clipboard = LocalClipboardManager.current
     var key by rememberSaveable { mutableStateOf("") }
 
+    Column(Modifier.fillMaxSize()) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Spacer(Modifier.height(12.dp))
@@ -86,17 +87,23 @@ fun OnboardingScreen(onDone: (apiKey: String) -> Unit) {
             }
         }
 
-        Button(onClick = { onDone(key) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            Text(if (key.isBlank()) "Mulai tanpa API key" else "Mulai")
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { onDone("") }) { Text("Lewati") }
-        }
         Text(
             "Setelah ini Android akan meminta izin Mikrofon (untuk mendengar) dan Kontak (untuk menelepon/SMS dengan nama).",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+    // Tombol selalu terlihat di bawah, berapa pun tinggi layarnya.
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = { onDone("") }) { Text("Lewati") }
+        Button(onClick = { onDone(key) }, modifier = Modifier.weight(1f).height(52.dp)) {
+            Text(if (key.isBlank()) "Mulai tanpa API key" else "Mulai")
+        }
+    }
     }
 }
 
