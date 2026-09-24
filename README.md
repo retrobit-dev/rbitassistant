@@ -38,6 +38,8 @@ Aturannya ada di [docs/intents.md](docs/intents.md).
 
 Asisten memakai **Gemini (online) bila tersedia**, lalu **otomatis turun ke model di perangkat** saat sinyal hilang, kuota free tier habis, atau server terlalu lambat — per permintaan, tanpa pengguna mengganti mode. Perintah (buka aplikasi, timer, telepon, volume) **selalu lokal** dan tetap jalan di mode pesawat. Suara (TTS) sengaja selalu lokal supaya tidak berganti di tengah percakapan. Rincian: [architecture.md §4.10](docs/architecture.md) dan [ADR 0002](docs/decisions/0002-online-first-offline-fallback.md).
 
+Model offline: **Gemma 4 E2B di atas LiteRT-LM** (berkas 2,6 GB). Kecepatannya di GT 30 Pro belum diketahui, dan GPU-nya belum pasti bisa dipakai. Cara mengujinya tanpa menulis kode ada di [ADR 0003](docs/decisions/0003-offline-llm-gemma4-litertlm.md).
+
 ## Mode gratis & tanpa kuota
 
 Jalur offline di atas adalah jaring pengaman: seluruh pipeline bisa dijalankan **di perangkat, tanpa API berbayar dan tanpa kuota**: ASR Whisper int8, TTS Piper berbahasa Indonesia, katalog intent lokal, dan LLM on-device untuk pertanyaan terbuka. Rincian stack, harga yang dibayar (kualitas, bukan uang), serta jawaban atas pertanyaan **perlu root atau Shizuku?** ada di [architecture.md §16](docs/architecture.md).
@@ -52,4 +54,4 @@ Kemampuan yang tetap bisa dicapai: membuka aplikasi, menelepon, mengirim pesan, 
 
 ## Langkah berikutnya
 
-`Fase 0 — Validasi` di [architecture.md §9](docs/architecture.md): lima pertanyaan yang harus dijawab di perangkat nyata sebelum satu baris kode fitur ditulis.
+`Fase 0 — Validasi` di [architecture.md §9](docs/architecture.md): enam pertanyaan yang harus dijawab di perangkat nyata sebelum satu baris kode fitur ditulis.

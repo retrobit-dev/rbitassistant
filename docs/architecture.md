@@ -30,9 +30,9 @@ Spesifikasi Infinix GT 30 Pro (sumber: GSMArena / nanoreview):
 |---|---|---|
 | SoC | MediaTek Dimensity 8350 Ultimate (4 nm) | Cukup untuk ASR on-device dan LLM kecil on-device. |
 | CPU | 1× A715 @3,35 GHz + 3× A715 @3,20 GHz + 4× A510 @2,20 GHz | Ada core cepat untuk burst inference; pakai `Performance` QoS saat inferensi, lalu turun. |
-| NPU | MediaTek APU 780 | **Praktis tidak bisa dipakai langsung** oleh runtime pihak ketiga. MediaPipe LLM Inference hanya mengekspor backend CPU & GPU, tanpa NPU. Jadi jangan merencanakan akselerasi NPU. |
-| GPU | Mali-G615 MC6 | Backend GPU untuk LLM on-device (MediaPipe/LiteRT). |
-| RAM | 8 GB / 12 GB LPDDR5X | Cukup untuk Gemma 3n E2B int4 (±3,1 GB file) sebagai fallback offline. |
+| NPU | MediaTek APU 780 | **Jangan direncanakan.** LiteRT punya akselerator NeuroPilot untuk NPU MediaTek, tetapi yang terdokumentasi adalah Dimensity 9500 dengan kompilasi per-SoC. Dukungan untuk 8350 belum terverifikasi. |
+| GPU | Mali-G615 MC6 | Backend GPU (OpenCL) untuk LiteRT-LM. **Belum pasti bisa dipakai**: sebagian chip kelas menengah tidak mengekspos OpenCL ke aplikasi, dan LiteRT-LM lalu diam-diam turun ke CPU. Diuji di Fase 0 ([ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md)). |
+| RAM | 8 GB / 12 GB LPDDR5X | Cukup untuk Gemma 4 E2B (berkas 2.583 MB; memori 676 MB di GPU, 1.733 MB di CPU, diukur di S26 Ultra). E4B (3.654 MB) hanya untuk varian 12 GB. |
 | Penyimpanan | 256/512 GB UFS 4.0, **tanpa slot microSD** | Model harus di-download ke penyimpanan app; sediakan manajemen ukuran model. |
 | OS | Android 15 / XOS 15 | Batasan mic latar, permission runtime, dan pembatasan baterai agresif khas XOS. |
 | Baterai | 5.500 mAh, 45 W | Wake word always-on tetap harus dikontrol ketat (§8). |
@@ -200,7 +200,7 @@ Set intent MVP (23 intent, semuanya sudah ada di `intents/`). Draf awal menulis 
 - **System prompt** berisi: persona, bahasa wajib Indonesia, gaya ringkas (jawaban untuk diucapkan, bukan dibaca — maks 2–3 kalimat kecuali diminta detail), dan daftar tool yang sama dengan katalog intent.
 - **Grounding:** untuk pertanyaan faktual/berita, aktifkan Google Search grounding agar tidak mengarang. Statusnya *Supported* di 3.8 Flash; **biayanya per-query dan harus jadi toggle** di pengaturan.
 - **Riwayat:** simpan percakapan lokal (Room/SQLDelight), kirim hanya N pesan terakhir (mis. 10) ke API untuk menjaga kuota.
-- **Fallback offline:** LLM on-device via MediaPipe LLM Inference / LiteRT (backend GPU) atau llama.cpp. Realistis di 8–12 GB RAM, tetapi **kualitas jawaban ID akan jauh di bawah Gemini**. Dipakai otomatis saat online tidak tersedia — aturan lengkapnya di §4.10. Catatan: daftar harga resmi Gemini API kini memuat **Gemma 4**, jadi pilihan model on-device perlu disurvei ulang saat Fase 3 — angka "Gemma 3n E2B int4 ±3,1 GB" di draf awal belum saya verifikasi ulang.
+- **Fallback offline:** **Gemma 4 E2B di atas LiteRT-LM** ([ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md)). Skor bahasa Indonesia di SEA-HELM: E2B 64,13 vs Gemma 4 31B 79,75, jadi **kualitas jawaban jelas di bawah model cloud**. Dipakai otomatis saat online tidak tersedia — aturan lengkapnya di §4.10. Draf awal menyebut "Gemma 3n E2B int4 ±3,1 GB via MediaPipe"; keduanya sudah basi (MediaPipe LLM Inference deprecated untuk Android).
 
 ### 4.7a Alternatif arsitektur: Gemini 3.8 Live (speech-to-speech)
 
@@ -244,7 +244,7 @@ Keputusan dan alasannya ada di [ADR 0002](decisions/0002-online-first-offline-fa
 |---|---|---|---|
 | ASR | `createSpeechRecognizer()` — recognizer jaringan Google | `createOnDeviceSpeechRecognizer()` bila tersedia, jika tidak Whisper int8 (sherpa-onnx) | Lihat "Audio dimiliki app" di bawah |
 | Router + intent + tool | — | — | **Selalu lokal.** Tidak bergantung pada koneksi. |
-| Chat | `gemini-3.8-flash` + search grounding | LLM on-device (llama.cpp / MediaPipe) | Offline tanpa tool calling; perintah tetap lewat router |
+| Chat | `gemini-3.8-flash` + search grounding | Gemma 4 E2B via LiteRT-LM | Offline tanpa tool calling (Tau2 E2B hanya 24,5%); perintah tetap lewat router |
 | TTS | — | — | **Selalu lokal**, disengaja (ADR 0002). Pilih voice dengan `Voice.isNetworkConnectionRequired() == false`, atau Piper `id_ID`. |
 
 Intent yang **tetap butuh internet** walau dieksekusi lokal: `weather` dan `search_web`. Saat offline, keduanya menjawab "butuh internet" alih-alih mengarang. `navigate_to`, `send_whatsapp`, dan `call_contact` hanya meluncurkan app lain, jadi tetap jalan.
@@ -287,7 +287,7 @@ Solusi: app yang merekam lewat `AudioRecord` ke buffer, lalu menyuapkan audio ke
 
 Fallback chat hanya ada bila modelnya sudah ada di perangkat. Maka:
 
-- Onboarding menawarkan **"Unduh paket offline"** (±2,5–4,5 GB: ASR + LLM + TTS), hanya lewat jaringan unmetered.
+- Onboarding menawarkan **"Unduh paket offline"**, hanya lewat jaringan unmetered. Perkiraan ukuran: **±2,9 GB** dengan Gemma 4 E2B, atau ±4,0 GB dengan E4B (LLM 2.583/3.654 MB, terverifikasi; ASR ≤250 MB dan TTS ±60–120 MB masih perkiraan).
 - Status paket ditampilkan di pengaturan: *belum diunduh / sebagian / siap*.
 - Bila offline dan paket belum ada: **perintah tetap jalan**; pertanyaan dijawab *"Butuh internet atau paket offline untuk menjawab ini."*
 
@@ -306,13 +306,13 @@ Model lokal tidak tahu kejadian terkini. Dua pengaman:
 
 #### Memori & baterai
 
-- Model lokal **tidak dimuat selama online**. Memuatnya memakan ±3 GB RAM dan 2–4 s.
+- Model lokal **tidak dimuat selama online**. Gemma 4 E2B memakai 676 MB (GPU) sampai 1.733 MB (CPU) memori menurut pengukuran di S26 Ultra. **Waktu muat tidak dipublikasikan** dan harus diukur di Fase 0.
 - Saat pemantau jaringan melaporkan hilang, atau circuit breaker terbuka, **dan app sedang di layar depan**: mulai memuat model lokal di latar supaya jawaban offline pertama tidak menunggu inisialisasi.
 - Saat kembali online dan tidak ada permintaan selama 60 s: lepaskan model lokal.
 
 #### Anggaran latensi terburuk
 
-Di jaringan yang lambat tapi tidak putus, permintaan pertama bisa membayar: batas waktu 3 s + inisialisasi model lokal 2–4 s + pembangkitan. **Itu 6–8 s sebelum suara pertama**, jauh di atas target 2 s di §8. Circuit breaker membatasi ini ke satu permintaan; pemuatan awal (di atas) memangkas bagian inisialisasi.
+Di jaringan yang lambat tapi tidak putus, permintaan pertama bisa membayar: batas waktu 3 s + waktu muat model lokal (**belum terukur**; kartu model resmi tidak mempublikasikannya) + token pertama (0,3 s di GPU S26 Ultra). Draf ini dulu memperkirakan **6–8 s sebelum suara pertama**; angka itu baru bisa dipastikan setelah Fase 0, jauh di atas target 2 s di §8. Circuit breaker membatasi ini ke satu permintaan; pemuatan awal (di atas) memangkas bagian inisialisasi.
 
 ---
 
@@ -327,7 +327,7 @@ Di jaringan yang lambat tapi tidak putus, permintaan pertama bisa membayar: bata
 | ASR | Android SpeechRecognizer | sherpa-onnx Whisper | Lihat §4.3. |
 | VAD / KWS | sherpa-onnx (Silero VAD) | Porcupine (Fase 4) | Gratis, open source, sudah ada binding Android. |
 | LLM | Gemini API (Retrofit + SSE) | Groq / OpenRouter / on-device Gemma | Function calling + free tier Flash. |
-| On-device LLM | MediaPipe LLM Inference (Gemma 3n E2B int4) | llama.cpp GGUF | MediaPipe lebih mudah; llama.cpp lebih fleksibel tapi butuh JNI. |
+| On-device LLM | **LiteRT-LM + Gemma 4 E2B** | llama.cpp GGUF (mis. SEA-LION v4.5 E2B) | MediaPipe LLM Inference sudah deprecated untuk Android. llama.cpp hanya bila LiteRT-LM gagal di perangkat ini. [ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md). |
 | TTS | Android TTS | sherpa-onnx (Piper/Kokoro) | Nol ukuran tambahan untuk MVP. |
 | Storage | Room + DataStore | SQLDelight | Standar. |
 | Backend | **Tidak ada** (Fase 1) | Cloud Run/Fly.io | API key Gemini **tidak boleh** dikapalkan di APK. Lihat §7 — ini masalah yang harus diputuskan sebelum rilis publik. |
@@ -345,7 +345,8 @@ rbitassistant/
 │   ├── privacy.md               ← apa yang keluar dari perangkat
 │   └── decisions/               ← ADR (Architecture Decision Record) pendek
 │       ├── 0001-not-a-system-assistant.md
-│       └── 0002-online-first-offline-fallback.md
+│       ├── 0002-online-first-offline-fallback.md
+│       └── 0003-offline-llm-gemma4-litertlm.md
 ├── settings.gradle.kts
 ├── gradle/libs.versions.toml    ← version catalog
 ├── app/                         ← UI, Activity, service, DI wiring
@@ -471,7 +472,7 @@ class FailoverChatEngine(
 
 - ASR sistem hanya aktif saat dipicu (push-to-talk) → dampak baterai nyaris nol.
 - Wake word always-on (Fase 4) → jaga buffer ring 16 kHz mono (±64 KB/detik PCM; pakai buffer kecil + proses per frame 32 ms). Perkiraan kasar: 1–3%/jam. **Angka ini belum diukur di GT 30 Pro — ukur sebelum menjanjikan always-on.**
-- Jangan jalankan LLM on-device di background. Muat saat dibutuhkan, `close()` segera setelah selesai (inisialisasi 2–4 detik, jadi simpan di ViewModel, jangan di Composable).
+- Jangan jalankan LLM on-device di background. Muat saat dibutuhkan, `close()` segera setelah selesai (waktu muat belum terukur di perangkat ini, jadi simpan engine di ViewModel, jangan di Composable).
 - Thermal: GT 30 Pro tercatat naik ±14% suhu saat gaming 30 menit. Inferensi berat beruntun akan throttle → pakai timeout + fallback ke model cloud yang lebih kecil.
 
 ---
@@ -479,12 +480,13 @@ class FailoverChatEngine(
 ## 9. Roadmap
 
 ### Fase 0 — Validasi (½ hari, di perangkat nyata)
-Sebelum menulis fitur apa pun, jawab lima pertanyaan ini di GT 30 Pro:
+Sebelum menulis fitur apa pun, jawab enam pertanyaan ini di GT 30 Pro:
 
 - [ ] `SpeechRecognizer.isOnDeviceRecognitionAvailable(context)` → `true` atau `false` di XOS 15?
 - [ ] Kualitas transkrip `id-ID` untuk 20 kalimat uji di `testdata/utterances_id.txt` (nama aplikasi, angka, campuran Inggris–Indonesia, dua jebakan)? Umpankan tiap transkrip ke `tools/intent_lab.py` untuk melihat apakah intent-nya tetap benar.
 - [ ] `TextToSpeech` dengan `Locale("id","ID")` tersedia? Kualitasnya bagaimana?
 - [ ] Apakah foreground service mic bertahan 30 menit dengan XOS battery optimization aktif?
+- [ ] **Kecepatan LLM offline:** pasang Google AI Edge Gallery dari Play Store, unduh Gemma 4 E2B, jalankan di GPU lalu CPU. Catat waktu token pertama dan token/detik. Di bawah ±8 token/s, mode offline hanya menjawab perintah ([ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md)). Tidak perlu menulis kode.
 - [ ] Apakah recognizer jaringan menerima audio dari app lewat `EXTRA_AUDIO_SOURCE`? (Menentukan apakah ASR bisa failover tanpa pengguna mengulang ucapan — §4.10.)
 
 **Kalau salah satu gagal, rencana di dokumen ini berubah.** Fase 0 murah; asumsi yang salah mahal.
@@ -507,7 +509,7 @@ Sebelum menulis fitur apa pun, jawab lima pertanyaan ini di GT 30 Pro:
 
 ### Fase 3 — Fallback offline penuh (2 minggu)
 - [ ] ASR sherpa-onnx Whisper int8 + unduhan model terkelola (hanya lewat jaringan unmetered).
-- [ ] LLM on-device menggantikan stub offline di `FailoverChatEngine` (model dipilih setelah survei ulang, §12).
+- [ ] Gemma 4 E2B via LiteRT-LM menggantikan stub offline di `FailoverChatEngine`. Setelah inisialisasi, **periksa backend yang benar-benar aktif** (GPU bisa diam-diam jatuh ke CPU) dan catat di log.
 - [ ] `FailoverAsrEngine` dengan buffer audio milik app (bila Fase 0 mengonfirmasi `EXTRA_AUDIO_SOURCE`).
 - [ ] Pengaman pertanyaan "butuh data terkini" saat offline.
 - [ ] Pemuatan awal model lokal saat jaringan hilang; pelepasan saat kembali online.
@@ -544,7 +546,7 @@ Sebelum menulis fitur apa pun, jawab lima pertanyaan ini di GT 30 Pro:
 | API key bocor dari APK | Tagihan & penyalahgunaan | Fase 5 backend proxy; MVP pakai key milik pengguna sendiri |
 | XOS mematikan foreground service | Wake word mati diam-diam | Notifikasi persisten + deteksi kematian service + panduan whitelist |
 | Kuota free tier Gemini habis/diubah | Chat turun kualitas | 429 membuka circuit breaker → jawaban offline otomatis (§4.10). Chat tidak mati, hanya menurun |
-| Jaringan lambat tapi tidak putus | Jawaban pertama 6–8 s | Batas waktu token pertama + circuit breaker + pemuatan awal model lokal (§4.10) |
+| Jaringan lambat tapi tidak putus | Jawaban pertama beberapa detik lebih lambat (angka pasti menunggu Fase 0) | Batas waktu token pertama + circuit breaker + pemuatan awal model lokal (§4.10) |
 | Paket offline belum diunduh | Tidak ada fallback chat | Onboarding menawarkan unduhan; perintah tetap jalan tanpa paket |
 | Model lokal mengarang soal kejadian terkini | Jawaban salah yang meyakinkan | Pertanyaan "butuh data terkini" ditolak saat offline; tanda "offline" di bubble |
 | Porcupine tidak mendukung ID | Wake word ID tidak mungkin | Pakai wake word EN, atau latih KWS sendiri (beban kerja nyata) |
@@ -563,7 +565,9 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 5. **Status free tier dan harga `gemini-3.8-flash`** — halaman harga resmi belum terbaca lengkap di sesi ini; kabar "free tier hanya Flash/Flash-Lite sejak April 2026" berasal dari sumber sekunder.
 6. Angka konsumsi baterai wake word always-on pada perangkat ini.
 7. **Ketersediaan function calling di `gemini-3.8-live`** dan biaya per menit audionya (§4.7a).
-8. **Model Gemma on-device terbaik saat ini** — daftar harga resmi Gemini API kini memuat "Gemma 4"; angka Gemma 3n di draf awal belum disurvei ulang.
+8. ~~Model Gemma on-device terbaik saat ini~~ — **sudah disurvei:** Gemma 4 E2B di atas LiteRT-LM ([ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md)). Yang tersisa: **kecepatan nyata di Dimensity 8350**, dan apakah GPU Mali-G615 bisa dipakai lewat OpenCL (Fase 0).
+15. **Skor SEA-HELM Indonesia untuk Gemma 4 E4B dan Qwen 3.5 4B** — ada di leaderboard, tetapi tidak tampil di tampilan yang bisa diambil.
+16. **ASR bawaan Gemma 4 E2B untuk bahasa Indonesia** — bila layak, jalur offline bisa membuang Whisper (±240 MB).
 9. **Kualitas jawaban bahasa Indonesia dari LLM on-device** kelas ~4B (§16.2). Ini penentu apakah mode offline layak jadi default.
 10. **Keandalan Shizuku di XOS 15** — dokumen Shizuku tidak memuat XOS dalam daftar workaround OEM-nya (§16.4).
 11. **Apakah root + `/system/priv-app/` + `privapp-permissions` bisa mengaktifkan `BIND_VOICE_INTERACTION`** — jalur teoritis, belum diverifikasi (§16.3).
@@ -582,7 +586,11 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 - `SpeechRecognizer.createOnDeviceSpeechRecognizer()` tersedia sejak API 31, bersama `isOnDeviceRecognitionAvailable()`; ada laporan build Android 15 OEM yang mengembalikan `false` meski recognizer sistem berfungsi.
 - Bahasa yang didukung Porcupine: EN, ES, FR, DE, IT, JA, KO, PT, ZH (tidak termasuk Indonesia). Free tier Picovoice ±3 user aktif/bulan, tier berikutnya $899/bln untuk ≤1.000 user.
 - sherpa-onnx: dukungan Android/iOS/WASM, model VAD (Silero), KWS, Whisper multilingual, dan TTS.
-- MediaPipe LLM Inference di Android mengekspos backend CPU & GPU (tanpa NPU); inisialisasi 2–4 detik sehingga session harus ditahan di ViewModel. (Angka "Gemma 3n E2B int4 ±3,1 GB" berasal dari sumber sekunder — survei ulang saat Fase 3.)
+- **Primer:** MediaPipe LLM Inference API untuk Android berstatus *maintenance-only/deprecated*; dokumentasi resmi meminta migrasi ke LiteRT-LM.
+- **Primer:** kartu model `litert-community/gemma-4-E2B-it-litert-lm` dan `…-E4B-it-litert-lm` — ukuran berkas 2.583 / 3.654 MB; decode GPU 52,1 / 22,1 token/s di S26 Ultra; waktu token pertama tidak termasuk waktu muat.
+- **Primer:** kartu model Gemma 4 (`ai.google.dev/gemma/docs/core/model_card_4`) — MMMLU E2B 67,4% / E4B 76,6%; Tau2 24,5% / 42,2%; function calling bawaan; 35+ bahasa siap pakai, dilatih pada 140+ bahasa.
+- **Primer:** SEA-HELM, skor Indonesia (18 Sep 2026) — Gemma 4 E2B 64,13; SEA-LION v4.5 E2B 63,96; Gemma 4 31B 79,75.
+- **Sekunder:** peringatan bahwa LiteRT-LM diam-diam turun ke CPU bila OpenCL tidak tersedia di chip kelas menengah.
 - **Primer:** `ai.google.dev/gemini-api/docs/models` dan `/models/gemini-3.8-flash` (diperbarui 2026-09-02) — daftar model stabil/preview dan tabel kapabilitas `gemini-3.8-flash`.
 - **Primer:** `ai.google.dev/gemini-api/docs/live-api`, `/live-api/capabilities`, `/live-api/live-transcribe` — 99 bahasa termasuk `id`, format audio PCM 16-bit 16 kHz in / 24 kHz out, `custom_vocabulary` ≤1.000 istilah, transkripsi `id-ID` & `jv-ID`.
 - **Sekunder, perlu verifikasi ulang:** perubahan free tier Gemini API per 1 April 2026 (Flash/Flash-Lite tetap free dengan kuota diperketat; Pro jadi paid-only).
@@ -645,9 +653,9 @@ Konsekuensi untuk Fase 1:
 | Free tier Picovoice ±3 user aktif/bulan | Kebijakan vendor | Cukup untuk pemakaian pribadi; tidak untuk rilis publik. |
 | XOS 15 agresif mematikan proses latar | Perilaku OEM | Foreground service + notifikasi persisten + panduan whitelist baterai. Tidak ada jaminan setara layanan sistem. |
 | Kuota & harga Gemini API bisa berubah kapan saja | Kebijakan vendor | Deteksi `429`, pesan jelas ke pengguna, siapkan endpoint alternatif. |
-| Kualitas ASR ID di perangkat tidak bisa dipastikan dari jauh | Ketergantungan perangkat | **Fase 0 wajib dijalankan Anda sendiri di GT 30 Pro** — lima pertanyaan di §9. |
+| Kualitas ASR ID di perangkat tidak bisa dipastikan dari jauh | Ketergantungan perangkat | **Fase 0 wajib dijalankan Anda sendiri di GT 30 Pro** — enam pertanyaan di §9. |
 
-**Kendala terbesar secara praktis:** Fase 0 hanya bisa dijalankan oleh orang yang memegang Infinix GT 30 Pro itu. Selama lima pertanyaan di §9 belum terjawab, setiap pilihan ASR/TTS di dokumen ini masih berupa hipotesis yang masuk akal — bukan fakta.
+**Kendala terbesar secara praktis:** Fase 0 hanya bisa dijalankan oleh orang yang memegang Infinix GT 30 Pro itu. Selama enam pertanyaan di §9 belum terjawab, setiap pilihan ASR/TTS di dokumen ini masih berupa hipotesis yang masuk akal — bukan fakta.
 
 ---
 
@@ -664,7 +672,7 @@ Yang menentukan "gratis & unlimited" adalah **apakah seluruh pipeline berjalan d
 | VAD | Silero VAD via sherpa-onnx | Tersedia, gratis |
 | ASR | sherpa-onnx + Whisper **multilingual** int8 | Tersedia. Bukti dukungan ID: paket spoken-language-ID sherpa-onnx menyertakan `id-indonesian.wav`. **Kualitas pada kalimat perintah pendek belum diukur.** |
 | Perintah | Router regex + fuzzy + katalog intent lokal | Gratis selamanya — ini justru bagian paling andal |
-| Chatbot | LLM on-device: llama.cpp (GGUF) atau MediaPipe/LiteRT | Gratis, tanpa kuota. **Kualitas jawaban ID di bawah Gemini Flash.** |
+| Chatbot | Gemma 4 E2B via LiteRT-LM ([ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md)) | Gratis, tanpa kuota. **Kualitas jawaban ID di bawah Gemini Flash.** |
 | TTS | **Piper `vits-piper-id_ID-news_tts-medium`** via sherpa-onnx | ✅ **Terverifikasi ada** — halaman TTS sherpa-onnx punya seksi "Indonesian" |
 | TTS alternatif | **`supertonic-3-id`** via sherpa-onnx | ✅ Terverifikasi ada |
 | Wake word | sherpa-onnx KWS (latih sendiri) | Perlu dataset + training |
@@ -676,9 +684,9 @@ Yang menentukan "gratis & unlimited" adalah **apakah seluruh pipeline berjalan d
 
 Bukan uang — **kualitas**:
 
-1. **Chatbot offline akan terasa lebih bodoh** daripada Gemini Flash, terutama untuk pertanyaan yang butuh pengetahuan luas atau penalaran panjang. Untuk perangkat 8/12 GB RAM, kelas model yang muat adalah ~4B parameter terkuantisasi.
+1. **Chatbot offline akan terasa lebih bodoh** daripada Gemini Flash. Terukur: skor Indonesia SEA-HELM untuk Gemma 4 E2B adalah 64,13, sedangkan Gemma 4 31B 79,75 ([ADR 0003](decisions/0003-offline-llm-gemma4-litertlm.md)).
 2. **Tidak ada informasi terkini.** Tanpa search grounding, pertanyaan "harga Infinix GT 30 Pro sekarang" atau "berita hari ini" tidak bisa dijawab benar.
-3. **Model memakan penyimpanan.** GT 30 Pro tidak punya slot microSD: ASR ±100–250 MB + LLM 2–4 GB + TTS ±60–120 MB, semua di penyimpanan internal.
+3. **Model memakan penyimpanan.** GT 30 Pro tidak punya slot microSD: Gemma 4 E2B 2.583 MB + ASR ≤250 MB + TTS ±60–120 MB ≈ 2,9 GB, semua di penyimpanan internal.
 4. **Perintah tidak terpengaruh.** Jalur perintah (buka aplikasi, timer, telepon, volume) sama sekali tidak butuh LLM cloud — di sinilah mode offline paling masuk akal.
 
 **Keputusan (diperbarui):** draf sebelumnya merekomendasikan offline sebagai default. Pengguna memilih sebaliknya — **online dulu, offline bila internet tidak tersedia**. Rinciannya di §4.10 dan [ADR 0002](decisions/0002-online-first-offline-fallback.md).

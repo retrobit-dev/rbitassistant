@@ -45,7 +45,7 @@ Mode offline penuh memenuhi (1) tetapi mengorbankan (2). Mode cloud penuh memenu
 **Yang harus dibayar:**
 
 - **Dua implementasi** untuk ASR dan chat — lebih banyak kode dan pengujian.
-- **Paket offline harus diunduh selagi online** (±2,5–4,5 GB). Tanpa itu, fallback chat tidak ada. Perintah tetap jalan.
+- **Paket offline harus diunduh selagi online** (±2,9 GB dengan Gemma 4 E2B; lihat [ADR 0003](0003-offline-llm-gemma4-litertlm.md)). Tanpa itu, fallback chat tidak ada. Perintah tetap jalan.
 - **Latensi terburuk lebih buruk** pada jaringan yang lambat tapi tidak putus: menunggu batas waktu, lalu memuat model lokal. Circuit breaker (§4.10) membatasi ini hanya ke permintaan pertama.
 - **Privasi:** online dulu berarti teks — dan audio, bila ASR jaringan dipakai — keluar ke Google secara default. Sediakan toggle **"Selalu offline"** dan nyatakan ini saat onboarding.
 
@@ -65,4 +65,4 @@ Pengecualian ini bisa ditinjau ulang bila Jalur B (`gemini-3.8-live`, §4.7a) di
 | Offline default, cloud opsional | Pengguna secara eksplisit memilih online dulu; kualitas jawaban offline terlalu jauh di bawah |
 | Mode manual (pengguna memilih online/offline) | Pengguna tidak tahu kapan kuota habis atau sinyal hilang; akan salah pilih |
 | Hanya cloud | Mati total saat kuota habis — melanggar syarat "tanpa batas" |
-| Menjalankan online & offline bersamaan, ambil yang tercepat | Memuat LLM lokal (±3 GB RAM, 2–4 s inisialisasi) di setiap permintaan menghabiskan baterai dan memicu throttling termal |
+| Menjalankan online & offline bersamaan, ambil yang tercepat | Menjalankan LLM lokal (0,7–1,7 GB memori untuk Gemma 4 E2B) di setiap permintaan menghabiskan baterai dan memicu throttling termal |
