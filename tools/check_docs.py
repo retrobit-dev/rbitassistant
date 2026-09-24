@@ -11,6 +11,8 @@ Yang diperiksa:
      harus lengkap: id, patterns (list), slots (map), action.
   2. Setiap tautan markdown relatif ([teks](path) dan [teks](path#anchor)) harus
      menunjuk berkas yang ada, dan anchor-nya harus benar-benar ada di berkas itu.
+  3. Tidak ada aksara yang nyasar (CJK / Hiragana / Katakana / Hangul) di dokumen
+     berbahasa Indonesia — ini penyakit nyata yang sudah terjadi di draf ini.
 
 Keluar dengan kode 1 bila ada satu saja kegagalan.
 """
@@ -111,12 +113,45 @@ def check_links(failures: list[str]) -> int:
     return checked
 
 
+STRAY_SCRIPTS = {
+    "CJK UNIFIED IDEOGRAPH": "aksara Tionghoa",
+    "HIRAGANA": "aksara Jepang (hiragana)",
+    "KATAKANA": "aksara Jepang (katakana)",
+    "HANGUL": "aksara Korea",
+}
+
+
+def check_stray_scripts(failures: list[str]) -> int:
+    """Cari aksara CJK/Kana/Hangul yang nyasar di dokumen berbahasa Indonesia.
+
+    Kembalikan jumlah karakter non-ASCII yang diperiksa.
+    """
+    checked = 0
+    for md in [REPO / "README.md", *sorted(DOCS.rglob("*.md"))]:
+        text = md.read_text(encoding="utf-8")
+        rel = md.relative_to(REPO)
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            for ch in line:
+                if ord(ch) < 128:
+                    continue
+                checked += 1
+                name = unicodedata.name(ch, "")
+                for prefix, label in STRAY_SCRIPTS.items():
+                    if name.startswith(prefix):
+                        failures.append(
+                            f"{rel}:{lineno}: '{ch}' adalah {label} ({name}) — tidak boleh ada di dokumen Indonesia"
+                        )
+    return checked
+
+
 def main() -> int:
     failures: list[str] = []
-    print("[1/2] Mem-parse blok YAML di docs/**")
+    print("[1/3] Mem-parse blok YAML di docs/**")
     n_yaml = check_yaml_blocks(failures)
-    print(f"[2/2] Memeriksa tautan internal di README.md + docs/**")
+    print("[2/3] Memeriksa tautan internal di README.md + docs/**")
     n_links = check_links(failures)
+    print("[3/3] Memeriksa aksara nyasar (CJK/Kana/Hangul)")
+    n_chars = check_stray_scripts(failures)
 
     print()
     if failures:
@@ -124,7 +159,8 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print(f"LULUS — {n_yaml} blok YAML ter-parse, {n_links} tautan internal valid.")
+    print(f"LULUS — {n_yaml} blok YAML ter-parse, {n_links} tautan internal valid, "
+          f"{n_chars} karakter non-ASCII bersih dari aksara nyasar.")
     return 0
 
 

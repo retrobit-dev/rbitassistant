@@ -15,8 +15,8 @@
 | Bahasa interaksi | **Bahasa Indonesia (`id-ID`)** | Target pengguna. |
 | Wake word | **Fase 1: push-to-talk / tombol & overlay.** Wake word baru di Fase 4, memakai kata dalam **bahasa Inggris** (mis. *"Hey Ruby"*) | Porcupine tidak mendukung bahasa Indonesia untuk custom wake word (hanya EN, ES, FR, DE, IT, JA, KO, PT, ZH). Alternatif wake word ID dibahas di §4.2. |
 | ASR | **Android `SpeechRecognizer`** sebagai jalur utama, `sherpa-onnx` (Whisper) sebagai jalur offline | Gratis, latensi rendah, kualitas ID terbaik di perangkat. Jalur offline untuk mode tanpa internet. |
-| Otak (chatbot + NLU) | **Gemini 3 Flash** via Gemini API (streaming + function calling) | Ada free tier untuk model Flash; dukungan bahasa Indonesia bagus; function calling = mekanisme "perintah". |
-| TTS | **Android `TextToSpeech`** dengan `Locale("id","ID")` | Sudah terpasang di XOS, nol tambahan ukuran APK. Voice neural offline (Piper/Kokoro) = opsi Fase 3. |
+| Otak (chatbot + NLU) | **Gemini 3.8 Flash** via Gemini API (streaming + function calling + search grounding) | Model Flash **stabil** terkini (per Sept 2026). Function calling = mekanisme "perintah". |
+| TTS | **Android `TextToSpeech`** dengan `Locale("id","ID")` | Sudah terpasang di XOS, nol tambahan ukuran APK. Alternatif cloud: Gemini 3.8 Flash-Lite TTS. Voice neural offline (Piper/Kokoro) = opsi Fase 3. |
 | Eksekusi perintah | **Intent eksplisit/implisit + MediaSession + Accessibility Service (opt-in)** | Ini satu-satunya jalur legal untuk "mengendalikan HP" dari app pihak ketiga. |
 
 ---
@@ -193,11 +193,31 @@ Set intent MVP (±20 intent sudah terasa seperti asisten sungguhan):
 
 ### 4.7 Chatbot
 
-- **Model utama: Gemini 3 Flash** — streaming + function calling. Free tier masih ada untuk model Flash/Flash-Lite per April 2026 (kuota harian diperketat); model Pro jadi paid-only. **Verifikasi ulang harga & kuota di `ai.google.dev` sebelum implementasi** — angka free tier berubah cepat.
+- **Model utama: Gemini 3.8 Flash** (endpoint `gemini-3.8-flash`) — streaming + function calling. Terverifikasi di halaman model resminya (diperbarui 2026-09-02): input **Text, Image, Video, Audio, PDF**; output text; **Function calling: Supported**; **Search grounding: Supported**; Structured output: Supported; Thinking: low/medium/high; input limit 1.048.576 token. **Audio generation: Not supported** (jadi model ini tidak bisa jadi TTS) dan **Live API: Not supported** (untuk suara dua arah pakai model Live, lihat poin di bawah).
+- **Catatan koreksi:** draf awal dokumen ini menyebut "Gemini 3 Flash" sebagai pilihan utama. Itu keliru — `gemini-3-flash-preview` berstatus **Preview**, bukan stabil. Flash stabil terkini adalah `gemini-3.8-flash`.
+- **Status free tier untuk `gemini-3.8-flash`: belum terverifikasi.** Halaman harga resmi terlalu besar untuk saya baca lengkap di sesi ini, dan kabar "free tier hanya Flash/Flash-Lite sejak April 2026" berasal dari sumber sekunder. **Periksa `ai.google.dev/gemini-api/docs/pricing` sebelum implementasi.**
 - **System prompt** berisi: persona, bahasa wajib Indonesia, gaya ringkas (jawaban untuk diucapkan, bukan dibaca — maks 2–3 kalimat kecuali diminta detail), dan daftar tool yang sama dengan katalog intent.
-- **Grounding:** untuk pertanyaan faktual/berita, aktifkan Google Search grounding agar tidak mengarang. Ini fitur berbayar — jadikan toggle di pengaturan.
+- **Grounding:** untuk pertanyaan faktual/berita, aktifkan Google Search grounding agar tidak mengarang. Statusnya *Supported* di 3.8 Flash; **biayanya per-query dan harus jadi toggle** di pengaturan.
 - **Riwayat:** simpan percakapan lokal (Room/SQLDelight), kirim hanya N pesan terakhir (mis. 10) ke API untuk menjaga kuota.
-- **Fallback offline:** Gemma 3n E2B int4 via MediaPipe LLM Inference / LiteRT (±3,1 GB, backend GPU). Realistis di 8–12 GB RAM, tetapi **kualitas jawaban ID akan jauh di bawah Gemini**. Posisikan sebagai "mode darurat", bukan default.
+- **Fallback offline:** Gemma on-device via MediaPipe LLM Inference / LiteRT (backend GPU). Realistis di 8–12 GB RAM, tetapi **kualitas jawaban ID akan jauh di bawah Gemini**. Posisikan sebagai "mode darurat", bukan default. Catatan: daftar harga resmi Gemini API kini memuat **Gemma 4**, jadi pilihan model on-device perlu disurvei ulang saat Fase 3 — angka "Gemma 3n E2B int4 ±3,1 GB" di draf awal belum saya verifikasi ulang.
+
+### 4.7a Alternatif arsitektur: Gemini 3.8 Live (speech-to-speech)
+
+Temuan yang **mengubah ruang desain**, dan belum ada di draf awal: Gemini API kini punya model suara dua arah.
+
+- **`gemini-3.8-live`** adalah model Live API stabil untuk "low-latency voice agent experiences". Live API mendukung **99 bahasa termasuk `id` (Indonesian)**, menerima audio **PCM 16-bit 16 kHz little-endian**, dan mengeluarkan audio PCM 24 kHz lewat WebSocket.
+- Live API punya **live transcription** dengan deteksi bahasa otomatis, **`custom_vocabulary`** (hingga 1.000 istilah — sangat berguna untuk membias nama aplikasi & kontak Indonesia), dan **automatic activity detection** (VAD bawaan, bisa dimatikan). Tabel transkripsinya memuat **`id-ID`** dan bahkan **`jv-ID`** (Jawa).
+
+Dua konsekuensi:
+
+| Skenario | Dampak |
+|---|---|
+| **Jalur A (tetap seperti draf):** ASR di perangkat → teks → Flash → TTS | Perintah tetap cepat & bisa offline. Tetap pilihan utama untuk Fase 1. |
+| **Jalur B:** audio langsung ke `gemini-3.8-live`, model menjawab dengan suara | **Satu WebSocket menggantikan ASR + LLM + TTS + VAD.** Jauh lebih sedikit kode, latensi lebih rendah, dan tidak bergantung pada `SpeechRecognizer` perangkat. Yang harus dibayar: butuh internet selalu, biaya per menit audio, dan perintah harus lewat function calling. |
+
+**Rekomendasi:** pertahankan interface `AsrEngine`/`ChatEngine`/`TtsEngine` yang sudah dirancang (§6) supaya **Jalur B bisa ditambahkan sebagai satu implementasi**, bukan perombakan. Untuk "chatbot yang menjawab pertanyaan", Jalur B kemungkinan besar terasa lebih alami. Untuk "perintah cepat & offline", Jalur A tetap menang.
+
+**Belum terverifikasi:** apakah function calling tersedia di `gemini-3.8-live` dengan reliabilitas cukup untuk mengeksekusi perintah, dan berapa biaya per menit audionya. Masuk checklist Fase 0.
 
 ### 4.8 TTS
 
@@ -279,7 +299,7 @@ python3 -m venv .venv-doccheck && .venv-doccheck/bin/pip install pyyaml
 .venv-doccheck/bin/python tools/check_docs.py
 ```
 
-Fungsinya: setiap blok berlabel `yaml` di `docs/**` harus benar-benar ter-parse dan, bila berupa katalog intent, wajib punya `id`/`patterns`/`slots`/`action`; setiap tautan markdown relatif harus menunjuk berkas dan anchor yang ada. Nanti, saat `intents/*.yaml` mulai diisi, pola pemeriksaan yang sama dipakai untuk memvalidasi katalog sungguhan.
+Fungsinya tiga hal: (1) setiap blok berlabel `yaml` di `docs/**` harus benar-benar ter-parse dan, bila berupa katalog intent, wajib punya `id`/`patterns`/`slots`/`action`; (2) setiap tautan markdown relatif harus menunjuk berkas dan anchor yang ada; (3) tidak boleh ada aksara CJK/Kana/Hangul yang nyasar di dokumen berbahasa Indonesia. Nanti, saat `intents/*.yaml` mulai diisi, pola pemeriksaan yang sama dipakai untuk memvalidasi katalog sungguhan.
 
 Interface kunci (supaya tiap modul bisa diuji tanpa mikrofon/jaringan):
 
@@ -425,8 +445,12 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 2. Ketersediaan dan kualitas paket suara `id-ID` di TTS sistem perangkat ini.
 3. Kualitas Whisper (int8) untuk bahasa Indonesia pada kalimat perintah pendek.
 4. Ketersediaan model TTS neural (Piper/Kokoro) berbahasa Indonesia.
-5. Angka kuota & harga Gemini API terkini (perubahan April 2026 hanya saya ketahui dari sumber sekunder).
+5. **Status free tier dan harga `gemini-3.8-flash`** — halaman harga resmi belum terbaca lengkap di sesi ini; kabar "free tier hanya Flash/Flash-Lite sejak April 2026" berasal dari sumber sekunder.
 6. Angka konsumsi baterai wake word always-on pada perangkat ini.
+7. **Ketersediaan function calling di `gemini-3.8-live`** dan biaya per menit audionya (§4.7a).
+8. **Model Gemma on-device terbaik saat ini** — daftar harga resmi Gemini API kini memuat "Gemma 4"; angka Gemma 3n di draf awal belum disurvei ulang.
+
+**Sudah diverifikasi lewat dokumentasi primer (diperbarui 2026-09-02):** kapabilitas `gemini-3.8-flash` — input Text/Image/Video/Audio/PDF, Function calling *Supported*, Search grounding *Supported*, Structured output *Supported*, Thinking low/medium/high, Audio generation *Not supported*, Live API *Not supported*. Juga: Live API mendukung 99 bahasa termasuk `id`, dan live transcription mencantumkan `id-ID` serta `jv-ID`.
 
 ---
 
@@ -437,5 +461,64 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 - `SpeechRecognizer.createOnDeviceSpeechRecognizer()` tersedia sejak API 31, bersama `isOnDeviceRecognitionAvailable()`; ada laporan build Android 15 OEM yang mengembalikan `false` meski recognizer sistem berfungsi.
 - Bahasa yang didukung Porcupine: EN, ES, FR, DE, IT, JA, KO, PT, ZH (tidak termasuk Indonesia). Free tier Picovoice ±3 user aktif/bulan, tier berikutnya $899/bln untuk ≤1.000 user.
 - sherpa-onnx: dukungan Android/iOS/WASM, model VAD (Silero), KWS, Whisper multilingual, dan TTS.
-- MediaPipe LLM Inference di Android mengekspos backend CPU & GPU (tanpa NPU); Gemma 3n E2B int4 ±3,1 GB; inisialisasi 2–4 detik sehingga session harus ditahan di ViewModel.
-- Perubahan free tier Gemini API per 1 April 2026: model Flash/Flash-Lite tetap ada free tier dengan kuota diperketat; model Pro jadi paid-only (sumber sekunder, verifikasi ulang).
+- MediaPipe LLM Inference di Android mengekspos backend CPU & GPU (tanpa NPU); inisialisasi 2–4 detik sehingga session harus ditahan di ViewModel. (Angka "Gemma 3n E2B int4 ±3,1 GB" berasal dari sumber sekunder — survei ulang saat Fase 3.)
+- **Primer:** `ai.google.dev/gemini-api/docs/models` dan `/models/gemini-3.8-flash` (diperbarui 2026-09-02) — daftar model stabil/preview dan tabel kapabilitas `gemini-3.8-flash`.
+- **Primer:** `ai.google.dev/gemini-api/docs/live-api`, `/live-api/capabilities`, `/live-api/live-transcribe` — 99 bahasa termasuk `id`, format audio PCM 16-bit 16 kHz in / 24 kHz out, `custom_vocabulary` ≤1.000 istilah, transkripsi `id-ID` & `jv-ID`.
+- **Sekunder, perlu verifikasi ulang:** perubahan free tier Gemini API per 1 April 2026 (Flash/Flash-Lite tetap free dengan kuota diperketat; Pro jadi paid-only).
+
+---
+
+## 14. Kendala lingkungan pengembangan (sandbox tempat rencana ini ditulis)
+
+Ini batas nyata yang sudah saya ukur langsung, bukan perkiraan. Penting diketahui sebelum Fase 1 dimulai.
+
+### 14.1 Yang terukur di sandbox ini
+
+```
+java       TIDAK ADA          repo1.maven.org     -> HTTP 000 (timeout)
+javac      TIDAK ADA          services.gradle.org -> HTTP 000 (timeout)
+gradle     TIDAK ADA          api.adoptium.net    -> HTTP 000 (timeout)
+kotlinc    TIDAK ADA          objects.githubusercontent.com -> HTTP 000
+adb        TIDAK ADA
+sdkmanager TIDAK ADA          github.com          -> HTTP 200
+                              pypi.org            -> HTTP 200
+                              registry.npmjs.org  -> HTTP 200
+```
+
+Ditambah: `apt-get update` gagal (`Connection failed` ke `deb.debian.org`), dan paket `openjdk-17-jdk-headless` tidak ditemukan di cache apt.
+
+### 14.2 Artinya
+
+**Tidak ada satu pun bagian Android dari proyek ini yang bisa dibangun atau diuji di sini.** Tidak ada JDK, tidak ada Gradle, tidak ada Android SDK, dan jalur unduhannya (Maven Central, Gradle distributions, Adoptium, Android repository Google) semuanya terblokir. Yang bisa berjalan di sini hanya tooling berbasis Python dan Node — itu sebabnya `tools/check_docs.py` dibuat dalam Python.
+
+Konsekuensi untuk Fase 1:
+
+| Bagian proyek | Bisa dikerjakan di sini? |
+|---|---|
+| `docs/`, katalog intent YAML, korpus uji, pemeriksa dokumen | ✅ Ya — sudah berjalan |
+| Logika murni: normalizer, pattern matcher, fuzzy matcher, slot resolver | ⚠️ Bisa **ditulis**, **tidak bisa dijalankan** (butuh JDK + Gradle + Maven Central) |
+| Modul Android (UI Compose, service, ASR, TTS) | ❌ Tidak bisa dibangun |
+| APK, instrumented test, uji di perangkat | ❌ Tidak bisa |
+
+### 14.3 Jalur keluar
+
+1. **Build di mesin Anda** — Android Studio di PC/laptop, atau Termux di GT 30 Pro. Paling cepat dan paling jujur.
+2. **CI di GitHub Actions** — runner `ubuntu-latest` punya akses jaringan penuh ke Maven Central dan Google Maven. **Belum terverifikasi** karena saya tidak bisa memicu run dari sini; harus diuji pada push pertama yang memuat workflow.
+3. **Prototipe logika dalam Python dulu** — normalizer/pattern matcher bisa dibuatkan purwarupa Python + test di sini (terbukti bisa dijalankan), lalu diporting ke Kotlin. Risikonya: dua implementasi yang harus dijaga tetap sama. Hanya layak bila Anda ingin melihat perilaku router sebelum menyentuh Android.
+
+**Rekomendasi:** jalur 1 untuk kode Android, jalur 2 dipasang sejak awal supaya tiap commit teruji, dan jangan pakai jalur 3 kecuali ada alasan kuat.
+
+---
+
+## 15. Kendala yang berada di luar kendali kita
+
+| Kendala | Sifat | Apa yang bisa dilakukan |
+|---|---|---|
+| `BIND_VOICE_INTERACTION` signature-level | Permanen, kebijakan Android | Terima. Posisi produk = aplikasi asisten, bukan asisten sistem (ADR 0001). |
+| Porcupine tak mendukung bahasa Indonesia | Kebijakan vendor | Wake word bahasa Inggris, atau latih KWS sendiri (biaya nyata). |
+| Free tier Picovoice ±3 user aktif/bulan | Kebijakan vendor | Cukup untuk pemakaian pribadi; tidak untuk rilis publik. |
+| XOS 15 agresif mematikan proses latar | Perilaku OEM | Foreground service + notifikasi persisten + panduan whitelist baterai. Tidak ada jaminan setara layanan sistem. |
+| Kuota & harga Gemini API bisa berubah kapan saja | Kebijakan vendor | Deteksi `429`, pesan jelas ke pengguna, siapkan endpoint alternatif. |
+| Kualitas ASR ID di perangkat tidak bisa dipastikan dari jauh | Ketergantungan perangkat | **Fase 0 wajib dijalankan Anda sendiri di GT 30 Pro** — empat pertanyaan di §9. |
+
+**Kendala terbesar secara praktis:** Fase 0 hanya bisa dijalankan oleh orang yang memegang Infinix GT 30 Pro itu. Selama empat pertanyaan di §9 belum terjawab, setiap pilihan ASR/TTS di dokumen ini masih berupa hipotesis yang masuk akal — bukan fakta.
