@@ -103,7 +103,15 @@ def main() -> int:
 
         if tap_text(dump(), "Pengaturan"):
             time.sleep(3)
-            diag = [x for x in texts(dump()) if x.startswith("Versi")]
+            if "API key Gemini" not in texts(dump()):
+                problems.append("layar Pengaturan tidak terbuka")
+            diag: list[str] = []
+            for _ in range(4):  # panel Diagnostik ada di bawah; uiautomator hanya melihat yang tampil
+                diag = [x for x in texts(dump()) if x.startswith("Versi")]
+                if diag:
+                    break
+                sh("shell", "input", "swipe", "540", "1600", "540", "400", "300")
+                time.sleep(1)
             report.append("Diagnostik emulator:\n" + (diag[0] if diag else "(tidak tampil)"))
             if not diag:
                 problems.append("panel Diagnostik tidak tampil")
