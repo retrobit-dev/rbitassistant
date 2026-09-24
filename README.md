@@ -22,9 +22,13 @@ Dua di antaranya menentukan bentuk proyek ini:
 
 Selebihnya — wake word yang tidak mendukung bahasa Indonesia, XOS yang agresif mematikan proses latar, kuota API yang bisa berubah — ada di [architecture.md §15](docs/architecture.md).
 
+## Online dulu, offline bila tidak ada internet
+
+Asisten memakai **Gemini (online) bila tersedia**, lalu **otomatis turun ke model di perangkat** saat sinyal hilang, kuota free tier habis, atau server terlalu lambat — per permintaan, tanpa pengguna mengganti mode. Perintah (buka aplikasi, timer, telepon, volume) **selalu lokal** dan tetap jalan di mode pesawat. Suara (TTS) sengaja selalu lokal supaya tidak berganti di tengah percakapan. Rincian: [architecture.md §4.10](docs/architecture.md) dan [ADR 0002](docs/decisions/0002-online-first-offline-fallback.md).
+
 ## Mode gratis & tanpa kuota
 
-Seluruh pipeline bisa dijalankan **di perangkat, tanpa API berbayar dan tanpa kuota**: ASR Whisper int8, TTS Piper berbahasa Indonesia, katalog intent lokal, dan LLM on-device untuk pertanyaan terbuka. Rincian stack, harga yang dibayar (kualitas, bukan uang), serta jawaban atas pertanyaan **perlu root atau Shizuku?** ada di [architecture.md §16](docs/architecture.md).
+Jalur offline di atas adalah jaring pengaman: seluruh pipeline bisa dijalankan **di perangkat, tanpa API berbayar dan tanpa kuota**: ASR Whisper int8, TTS Piper berbahasa Indonesia, katalog intent lokal, dan LLM on-device untuk pertanyaan terbuka. Rincian stack, harga yang dibayar (kualitas, bukan uang), serta jawaban atas pertanyaan **perlu root atau Shizuku?** ada di [architecture.md §16](docs/architecture.md).
 
 Ringkasnya: **root tidak diperlukan** (dan tidak membuka kemampuan utamanya), **Shizuku belum tentu diperlukan** — keduanya soal privilege, bukan soal biaya.
 
@@ -36,4 +40,4 @@ Kemampuan yang tetap bisa dicapai: membuka aplikasi, menelepon, mengirim pesan, 
 
 ## Langkah berikutnya
 
-`Fase 0 — Validasi` di [architecture.md §9](docs/architecture.md): empat pertanyaan yang harus dijawab di perangkat nyata sebelum satu baris kode fitur ditulis.
+`Fase 0 — Validasi` di [architecture.md §9](docs/architecture.md): lima pertanyaan yang harus dijawab di perangkat nyata sebelum satu baris kode fitur ditulis.

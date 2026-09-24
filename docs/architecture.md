@@ -18,6 +18,7 @@
 | Otak (chatbot + NLU) | **Gemini 3.8 Flash** via Gemini API (streaming + function calling + search grounding) | Model Flash **stabil** terkini (per Sept 2026). Function calling = mekanisme "perintah". |
 | TTS | **Android `TextToSpeech`** dengan `Locale("id","ID")` | Sudah terpasang di XOS, nol tambahan ukuran APK. Alternatif cloud: Gemini 3.8 Flash-Lite TTS. Voice neural offline (Piper/Kokoro) = opsi Fase 3. |
 | Eksekusi perintah | **Intent eksplisit/implisit + MediaSession + Accessibility Service (opt-in)** | Ini satu-satunya jalur legal untuk "mengendalikan HP" dari app pihak ketiga. |
+| Online vs offline | **Online dulu, offline otomatis bila internet tidak tersedia**, diputuskan per permintaan | Kuota habis (429) diperlakukan sama dengan tanpa internet, jadi asisten tidak pernah mati. Perintah selalu lokal. Lihat §4.10 dan [ADR 0002](decisions/0002-online-first-offline-fallback.md). |
 
 ---
 
@@ -74,6 +75,7 @@ Prinsip desain:
 - **Audio hanya keluar dari perangkat bila diperlukan.** Default: ASR sistem (bisa on-device), NLU lokal untuk perintah. Yang dikirim ke cloud hanya teks, bukan audio.
 - **Router dulu, LLM kemudian.** Perintah berfrekuensi tinggi ("buka X", "naikkan volume") tidak boleh menunggu round-trip cloud. Target: perintah dieksekusi < 1 detik dari ujung ucapan.
 - **Semua modul di balik interface.** ASR/LLM/TTS bisa ditukar tanpa menyentuh logika bisnis (§6).
+- **Online dulu, offline bila perlu.** (C) ASR dan (G) LLM Chat masing-masing punya versi online dan offline; pemilihnya adalah lapisan failover yang memeriksa jaringan dan hasil permintaan (§4.10). (D)–(F) dan (I) TTS selalu lokal.
 
 ---
 
@@ -120,7 +122,7 @@ Detail penting:
 - **Tingkat 1 vs 2 bukan perbedaan kosmetik.** `createSpeechRecognizer()` bisa mengirim audio ke cloud vendor — perlakukan sebagai API jaringan sampai terbukti on-device. UI harus jujur soal ini ("mode offline aktif/tidak").
 - `EXTRA_PREFER_OFFLINE=true` **bukan jaminan** offline; ia hanya preferensi. Yang menjamin adalah constructor on-device.
 - Konfigurasi intent: `EXTRA_LANGUAGE = "id-ID"`, `EXTRA_PARTIAL_RESULTS = true`, `EXTRA_LANGUAGE_MODEL = LANGUAGE_MODEL_FREE_FORM`, `EXTRA_MAX_RESULTS = 5`.
-- **Deteksi tingkat dilakukan sekali saat start**, hasilnya disimpan, dan ditampilkan di layar pengaturan. Jangan sampai pengguna mengira audionya lokal padahal tidak.
+- **Ketersediaan tiap tingkat dideteksi sekali saat start**, tetapi **tingkat yang dipakai dipilih per ucapan**: Tingkat 2 saat online, Tingkat 1 → 3 saat offline (§4.10). Tampilkan tingkat yang sedang dipakai di UI. Jangan sampai pengguna mengira audionya lokal padahal tidak.
 - Untuk Tingkat 3: Whisper *multilingual* (bukan `.en`) mendukung bahasa Indonesia, tetapi **kualitasnya pada ID belum saya verifikasi di perangkat ini** — masuk checklist Fase 2.
 
 ### 4.4 VAD (Voice Activity Detection)
@@ -199,7 +201,7 @@ Set intent MVP (±20 intent sudah terasa seperti asisten sungguhan):
 - **System prompt** berisi: persona, bahasa wajib Indonesia, gaya ringkas (jawaban untuk diucapkan, bukan dibaca — maks 2–3 kalimat kecuali diminta detail), dan daftar tool yang sama dengan katalog intent.
 - **Grounding:** untuk pertanyaan faktual/berita, aktifkan Google Search grounding agar tidak mengarang. Statusnya *Supported* di 3.8 Flash; **biayanya per-query dan harus jadi toggle** di pengaturan.
 - **Riwayat:** simpan percakapan lokal (Room/SQLDelight), kirim hanya N pesan terakhir (mis. 10) ke API untuk menjaga kuota.
-- **Fallback offline:** Gemma on-device via MediaPipe LLM Inference / LiteRT (backend GPU). Realistis di 8–12 GB RAM, tetapi **kualitas jawaban ID akan jauh di bawah Gemini**. Posisikan sebagai "mode darurat", bukan default. Catatan: daftar harga resmi Gemini API kini memuat **Gemma 4**, jadi pilihan model on-device perlu disurvei ulang saat Fase 3 — angka "Gemma 3n E2B int4 ±3,1 GB" di draf awal belum saya verifikasi ulang.
+- **Fallback offline:** LLM on-device via MediaPipe LLM Inference / LiteRT (backend GPU) atau llama.cpp. Realistis di 8–12 GB RAM, tetapi **kualitas jawaban ID akan jauh di bawah Gemini**. Dipakai otomatis saat online tidak tersedia — aturan lengkapnya di §4.10. Catatan: daftar harga resmi Gemini API kini memuat **Gemma 4**, jadi pilihan model on-device perlu disurvei ulang saat Fase 3 — angka "Gemma 3n E2B int4 ±3,1 GB" di draf awal belum saya verifikasi ulang.
 
 ### 4.7a Alternatif arsitektur: Gemini 3.8 Live (speech-to-speech)
 
@@ -233,6 +235,86 @@ Dua konsekuensi:
 - **Slot yang dipelajari**: alias kontak & aplikasi ("buka wa" → WhatsApp). Disimpan sebagai kamus pribadi, dipakai oleh resolver slot.
 - **Tidak ada profil pengguna di server.** Semua data personal tetap di perangkat.
 
+### 4.10 Online dulu, offline bila internet tidak tersedia
+
+Keputusan dan alasannya ada di [ADR 0002](decisions/0002-online-first-offline-fallback.md). Bagian ini menjelaskan cara kerjanya.
+
+#### Apa yang punya dua versi, apa yang tidak
+
+| Komponen | Online (diutamakan) | Offline (fallback) | Catatan |
+|---|---|---|---|
+| ASR | `createSpeechRecognizer()` — recognizer jaringan Google | `createOnDeviceSpeechRecognizer()` bila tersedia, jika tidak Whisper int8 (sherpa-onnx) | Lihat "Audio dimiliki app" di bawah |
+| Router + intent + tool | — | — | **Selalu lokal.** Tidak bergantung pada koneksi. |
+| Chat | `gemini-3.8-flash` + search grounding | LLM on-device (llama.cpp / MediaPipe) | Offline tanpa tool calling; perintah tetap lewat router |
+| TTS | — | — | **Selalu lokal**, disengaja (ADR 0002). Pilih voice dengan `Voice.isNetworkConnectionRequired() == false`, atau Piper `id_ID`. |
+
+Intent yang **tetap butuh internet** walau dieksekusi lokal: `weather` dan `search_web`. Saat offline, keduanya menjawab "butuh internet" alih-alih mengarang. `navigate_to`, `send_whatsapp`, dan `call_contact` hanya meluncurkan app lain, jadi tetap jalan.
+
+#### Kapan dianggap "online"
+
+Dua lapis, karena satu lapis saja tidak cukup:
+
+1. **Pemantau jaringan** — `ConnectivityManager.registerDefaultNetworkCallback()`; dianggap online hanya bila jaringan punya `NET_CAPABILITY_VALIDATED`. Tanpa syarat ini, Wi-Fi dengan captive portal (hotel, kafe) akan dikira online.
+2. **Hasil permintaan nyata** — jaringan tervalidasi belum berarti Gemini bisa dijangkau atau kuota masih ada. Setiap permintaan online punya batas waktu dan penanganan error sendiri.
+
+Data seluler dihitung online (teks chat berukuran sangat kecil). Hanya **unduhan model** yang ditahan sampai jaringan *unmetered*.
+
+#### Aturan failover per permintaan (chat)
+
+| Kejadian | Tindakan | Circuit breaker |
+|---|---|---|
+| Tidak ada jaringan tervalidasi | Langsung offline, tanpa mencoba | — |
+| API key kosong | Langsung offline | — |
+| Token pertama tidak datang dalam **3 s** | Batalkan, jawab offline | Hitung sebagai gagal |
+| HTTP 5xx / koneksi error | Jawab offline | Hitung sebagai gagal |
+| **HTTP 429** (kuota habis) | Jawab offline | **Buka segera** sampai waktu reset kuota — baca dari respons error, jangan menebak |
+| Putus **di tengah** jawaban | Hentikan, tandai bubble "terputus", ucapkan *"Koneksi putus, saya jawab ulang secara offline"*, lalu jawab ulang dari awal secara offline | Hitung sebagai gagal |
+
+Circuit breaker: **3 kegagalan berturut-turut → semua permintaan langsung offline selama 60 s**, lalu satu permintaan berikutnya dicoba online sebagai uji. Tanpa ini, setiap pertanyaan di jaringan yang lambat akan membayar 3 s menunggu sebelum turun ke offline.
+
+Semua angka (3 s, 3 kali, 60 s) adalah **titik awal**, bukan hasil pengukuran. Setel ulang setelah uji di GT 30 Pro.
+
+Jawaban yang putus di tengah **tidak disambung**. Menggabungkan awal kalimat dari Gemini dengan lanjutan dari model lokal menghasilkan jawaban yang tidak konsisten.
+
+#### Audio dimiliki app (supaya ASR bisa failover tanpa minta ulang)
+
+Masalah: bila `SpeechRecognizer` online gagal (`ERROR_NETWORK`, `ERROR_NETWORK_TIMEOUT`, `ERROR_SERVER`, `ERROR_SERVER_DISCONNECTED`), audionya sudah hilang — pengguna harus mengulang ucapan.
+
+Solusi: app yang merekam lewat `AudioRecord` ke buffer, lalu menyuapkan audio ke recognizer lewat `RecognizerIntent.EXTRA_AUDIO_SOURCE` (tersedia sejak Android 13). Bila online gagal, **buffer yang sama** diputar ulang ke Whisper lokal. Pengguna cukup bicara sekali.
+
+**Belum terverifikasi:** apakah recognizer Google di XOS 15 menerima `EXTRA_AUDIO_SOURCE` untuk recognizer jaringan. Masuk Fase 0. Bila tidak, fallback-nya: minta pengguna mengulang, dan ucapan berikutnya langsung diproses offline.
+
+#### Paket offline harus diunduh selagi online
+
+Fallback chat hanya ada bila modelnya sudah ada di perangkat. Maka:
+
+- Onboarding menawarkan **"Unduh paket offline"** (±2,5–4,5 GB: ASR + LLM + TTS), hanya lewat jaringan unmetered.
+- Status paket ditampilkan di pengaturan: *belum diunduh / sebagian / siap*.
+- Bila offline dan paket belum ada: **perintah tetap jalan**; pertanyaan dijawab *"Butuh internet atau paket offline untuk menjawab ini."*
+
+#### Mencegah jawaban offline yang mengarang
+
+Model lokal tidak tahu kejadian terkini. Dua pengaman:
+
+1. System prompt offline menyatakan batas pengetahuan dan meminta model mengaku tidak tahu.
+2. Pertanyaan yang jelas butuh data terkini (kata kunci seperti *hari ini, sekarang, terbaru, harga, berita, skor*) saat offline dijawab dengan *"Ini butuh internet"*, tidak diteruskan ke model lokal.
+
+#### Kejujuran di UI
+
+- Setiap bubble jawaban diberi tanda asal: **online** atau **offline**.
+- Saat berpindah online → offline, asisten mengucapkan satu kali *"Sedang offline, jawaban mungkin kurang lengkap."* Tidak diulang di setiap jawaban.
+- Toggle **"Selalu offline"** di pengaturan mematikan jalur online sepenuhnya (untuk privasi atau hemat data).
+
+#### Memori & baterai
+
+- Model lokal **tidak dimuat selama online**. Memuatnya memakan ±3 GB RAM dan 2–4 s.
+- Saat pemantau jaringan melaporkan hilang, atau circuit breaker terbuka, **dan app sedang di layar depan**: mulai memuat model lokal di latar supaya jawaban offline pertama tidak menunggu inisialisasi.
+- Saat kembali online dan tidak ada permintaan selama 60 s: lepaskan model lokal.
+
+#### Anggaran latensi terburuk
+
+Di jaringan yang lambat tapi tidak putus, permintaan pertama bisa membayar: batas waktu 3 s + inisialisasi model lokal 2–4 s + pembangkitan. **Itu 6–8 s sebelum suara pertama**, jauh di atas target 2 s di §8. Circuit breaker membatasi ini ke satu permintaan; pemuatan awal (di atas) memangkas bagian inisialisasi.
+
 ---
 
 ## 5. Teknologi yang dipilih
@@ -263,7 +345,8 @@ rbitassistant/
 │   ├── intents.md               ← katalog intent & aturan penulisan pola
 │   ├── privacy.md               ← apa yang keluar dari perangkat
 │   └── decisions/               ← ADR (Architecture Decision Record) pendek
-│       └── 0001-not-a-system-assistant.md
+│       ├── 0001-not-a-system-assistant.md
+│       └── 0002-online-first-offline-fallback.md
 ├── settings.gradle.kts
 ├── gradle/libs.versions.toml    ← version catalog
 ├── app/                         ← UI, Activity, service, DI wiring
@@ -326,7 +409,30 @@ interface TtsEngine {
     suspend fun speak(text: String, style: SpeechStyle)
     fun stop()
 }
+
+// --- Online dulu, offline bila perlu (§4.10) ---
+
+data class NetState(val validated: Boolean, val metered: Boolean)
+
+interface ConnectivityMonitor {
+    val state: StateFlow<NetState>          // dari registerDefaultNetworkCallback()
+}
+
+enum class Origin { ONLINE, OFFLINE }
+
+// ChatEvent ditambah dua jenis:
+//   ChatEvent.Origin(origin)     — dikirim sekali di awal, untuk tanda di bubble
+//   ChatEvent.Interrupted        — jawaban online putus di tengah; UI menandai bubble
+
+class FailoverChatEngine(
+    private val online: ChatEngine,         // Gemini
+    private val offline: ChatEngine,        // LLM on-device
+    private val net: ConnectivityMonitor,
+    private val breaker: CircuitBreaker,    // 3 gagal → 60 s offline; 429 → sampai reset
+) : ChatEngine
 ```
+
+`FailoverChatEngine` adalah satu-satunya tempat keputusan online/offline untuk chat. UI dan router tidak tahu — mereka hanya melihat `ChatEngine`. `FailoverAsrEngine` mengikuti pola yang sama untuk ASR. Karena logikanya murni (tanpa Android bila `ConnectivityMonitor` dan jam di-inject), seluruh tabel failover di §4.10 bisa diuji unit.
 
 `ToolResult` wajib membawa `spoken` (untuk TTS) dan `display` (untuk UI) — jangan pakai satu string untuk keduanya.
 
@@ -372,22 +478,24 @@ interface TtsEngine {
 ## 9. Roadmap
 
 ### Fase 0 — Validasi (½ hari, di perangkat nyata)
-Sebelum menulis fitur apa pun, jawab empat pertanyaan ini di GT 30 Pro:
+Sebelum menulis fitur apa pun, jawab lima pertanyaan ini di GT 30 Pro:
 
 - [ ] `SpeechRecognizer.isOnDeviceRecognitionAvailable(context)` → `true` atau `false` di XOS 15?
 - [ ] Kualitas transkrip `id-ID` untuk 20 kalimat uji (termasuk nama aplikasi, angka, campuran Inggris–Indonesia)?
 - [ ] `TextToSpeech` dengan `Locale("id","ID")` tersedia? Kualitasnya bagaimana?
 - [ ] Apakah foreground service mic bertahan 30 menit dengan XOS battery optimization aktif?
+- [ ] Apakah recognizer jaringan menerima audio dari app lewat `EXTRA_AUDIO_SOURCE`? (Menentukan apakah ASR bisa failover tanpa pengguna mengulang ucapan — §4.10.)
 
 **Kalau salah satu gagal, rencana di dokumen ini berubah.** Fase 0 murah; asumsi yang salah mahal.
 
 ### Fase 1 — MVP push-to-talk (1–2 minggu)
 - [ ] Tombol mic besar + waveform + transkrip real-time (`EXTRA_PARTIAL_RESULTS`).
 - [ ] Router tingkat 1–3 (normalisasi, regex, fuzzy) + 10 intent pertama.
-- [ ] Fallback chat ke Gemini 3 Flash, streaming, ditampilkan sebagai bubble.
-- [ ] TTS `id-ID` dengan `spoken`/`display` terpisah.
-- [ ] Layar pengaturan: pilih engine ASR, mode offline, key API.
-- **Selesai bila:** 20 kalimat uji perintah tereksekusi benar ≥ 90%, dan pertanyaan bebas terjawab dengan suara.
+- [ ] Chat ke `gemini-3.8-flash`, streaming, ditampilkan sebagai bubble.
+- [ ] TTS `id-ID` lokal dengan `spoken`/`display` terpisah.
+- [ ] **Kerangka online-dulu:** `ConnectivityMonitor`, `FailoverChatEngine`, circuit breaker, tanda online/offline di bubble. Engine offline di fase ini masih *stub* yang menjawab "butuh internet" — yang penting jalurnya sudah ada dan teruji.
+- [ ] Layar pengaturan: key API, toggle "Selalu offline", status paket offline.
+- **Selesai bila:** 20 kalimat uji perintah tereksekusi benar ≥ 90% **baik online maupun dalam mode pesawat**, dan pertanyaan bebas terjawab dengan suara saat online.
 
 ### Fase 2 — Perintah yang benar-benar berguna (2–3 minggu)
 - [ ] 20+ intent lengkap, termasuk slot resolver untuk kontak & aplikasi terpasang.
@@ -396,11 +504,14 @@ Sebelum menulis fitur apa pun, jawab empat pertanyaan ini di GT 30 Pro:
 - [ ] Riwayat percakapan tersimpan + bisa dihapus.
 - [ ] Overlay mengambang + widget + pintasan supaya bisa dipanggil cepat.
 
-### Fase 3 — Offline (2 minggu)
-- [ ] ASR sherpa-onnx Whisper int8 + unduhan model terkelola.
-- [ ] Gemma 3n E2B int4 via MediaPipe untuk chat offline.
-- [ ] Mode pesawat: indikator jelas "offline — kemampuan terbatas".
-- [ ] (Opsional) TTS neural ID bila tersedia model yang layak.
+### Fase 3 — Fallback offline penuh (2 minggu)
+- [ ] ASR sherpa-onnx Whisper int8 + unduhan model terkelola (hanya lewat jaringan unmetered).
+- [ ] LLM on-device menggantikan stub offline di `FailoverChatEngine` (model dipilih setelah survei ulang, §12).
+- [ ] `FailoverAsrEngine` dengan buffer audio milik app (bila Fase 0 mengonfirmasi `EXTRA_AUDIO_SOURCE`).
+- [ ] Pengaman pertanyaan "butuh data terkini" saat offline.
+- [ ] Pemuatan awal model lokal saat jaringan hilang; pelepasan saat kembali online.
+- [ ] TTS Piper `id_ID` / Supertonic sebagai alternatif TTS sistem (§16.1).
+- **Selesai bila:** mencabut jaringan di tengah percakapan tidak pernah membuat asisten diam — setiap pertanyaan dijawab (online atau offline) atau ditolak dengan alasan yang jelas.
 
 ### Fase 4 — Wake word (1–2 minggu, setelah fitur lain stabil)
 - [ ] Keputusan: wake word Inggris (Porcupine) vs training sendiri (sherpa-onnx KWS).
@@ -431,7 +542,10 @@ Sebelum menulis fitur apa pun, jawab empat pertanyaan ini di GT 30 Pro:
 | Kualitas ASR ID untuk nama aplikasi/kontak | Perintah salah dieksekusi | Fuzzy resolver terhadap daftar aplikasi/kontak terpasang, bukan pencocokan string mentah |
 | API key bocor dari APK | Tagihan & penyalahgunaan | Fase 5 backend proxy; MVP pakai key milik pengguna sendiri |
 | XOS mematikan foreground service | Wake word mati diam-diam | Notifikasi persisten + deteksi kematian service + panduan whitelist |
-| Kuota free tier Gemini habis/diubah | Chat mati | Deteksi 429, tampilkan pesan jelas, sediakan endpoint alternatif |
+| Kuota free tier Gemini habis/diubah | Chat turun kualitas | 429 membuka circuit breaker → jawaban offline otomatis (§4.10). Chat tidak mati, hanya menurun |
+| Jaringan lambat tapi tidak putus | Jawaban pertama 6–8 s | Batas waktu token pertama + circuit breaker + pemuatan awal model lokal (§4.10) |
+| Paket offline belum diunduh | Tidak ada fallback chat | Onboarding menawarkan unduhan; perintah tetap jalan tanpa paket |
+| Model lokal mengarang soal kejadian terkini | Jawaban salah yang meyakinkan | Pertanyaan "butuh data terkini" ditolak saat offline; tanda "offline" di bubble |
 | Porcupine tidak mendukung ID | Wake word ID tidak mungkin | Pakai wake word EN, atau latih KWS sendiri (beban kerja nyata) |
 | Ekspektasi pengguna = "seperti Google Assistant" | Kekecewaan | Komunikasi batas §4.1 di README dan onboarding |
 
@@ -452,6 +566,9 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 9. **Kualitas jawaban bahasa Indonesia dari LLM on-device** kelas ~4B (§16.2). Ini penentu apakah mode offline layak jadi default.
 10. **Keandalan Shizuku di XOS 15** — dokumen Shizuku tidak memuat XOS dalam daftar workaround OEM-nya (§16.4).
 11. **Apakah root + `/system/priv-app/` + `privapp-permissions` bisa mengaktifkan `BIND_VOICE_INTERACTION`** — jalur teoritis, belum diverifikasi (§16.3).
+12. **`EXTRA_AUDIO_SOURCE` pada recognizer jaringan di XOS 15** — menentukan apakah ASR bisa failover tanpa pengguna mengulang (§4.10).
+13. **Angka failover** (batas waktu 3 s, 3 kegagalan, jeda 60 s) — titik awal, belum diukur di jaringan seluler nyata.
+14. **Proyek Gemini tanpa billing menolak dengan 429 alih-alih menagih** — perilaku umum free tier, tetapi harus dicek di halaman harga resmi sebelum menjanjikan "Rp 0".
 
 **Sudah diverifikasi lewat dokumentasi primer (diperbarui 2026-09-02):** kapabilitas `gemini-3.8-flash` — input Text/Image/Video/Audio/PDF, Function calling *Supported*, Search grounding *Supported*, Structured output *Supported*, Thinking low/medium/high, Audio generation *Not supported*, Live API *Not supported*. Juga: Live API mendukung 99 bahasa termasuk `id`, dan live transcription mencantumkan `id-ID` serta `jv-ID`.
 
@@ -527,9 +644,9 @@ Konsekuensi untuk Fase 1:
 | Free tier Picovoice ±3 user aktif/bulan | Kebijakan vendor | Cukup untuk pemakaian pribadi; tidak untuk rilis publik. |
 | XOS 15 agresif mematikan proses latar | Perilaku OEM | Foreground service + notifikasi persisten + panduan whitelist baterai. Tidak ada jaminan setara layanan sistem. |
 | Kuota & harga Gemini API bisa berubah kapan saja | Kebijakan vendor | Deteksi `429`, pesan jelas ke pengguna, siapkan endpoint alternatif. |
-| Kualitas ASR ID di perangkat tidak bisa dipastikan dari jauh | Ketergantungan perangkat | **Fase 0 wajib dijalankan Anda sendiri di GT 30 Pro** — empat pertanyaan di §9. |
+| Kualitas ASR ID di perangkat tidak bisa dipastikan dari jauh | Ketergantungan perangkat | **Fase 0 wajib dijalankan Anda sendiri di GT 30 Pro** — lima pertanyaan di §9. |
 
-**Kendala terbesar secara praktis:** Fase 0 hanya bisa dijalankan oleh orang yang memegang Infinix GT 30 Pro itu. Selama empat pertanyaan di §9 belum terjawab, setiap pilihan ASR/TTS di dokumen ini masih berupa hipotesis yang masuk akal — bukan fakta.
+**Kendala terbesar secara praktis:** Fase 0 hanya bisa dijalankan oleh orang yang memegang Infinix GT 30 Pro itu. Selama lima pertanyaan di §9 belum terjawab, setiap pilihan ASR/TTS di dokumen ini masih berupa hipotesis yang masuk akal — bukan fakta.
 
 ---
 
@@ -563,12 +680,9 @@ Bukan uang — **kualitas**:
 3. **Model memakan penyimpanan.** GT 30 Pro tidak punya slot microSD: ASR ±100–250 MB + LLM 2–4 GB + TTS ±60–120 MB, semua di penyimpanan internal.
 4. **Perintah tidak terpengaruh.** Jalur perintah (buka aplikasi, timer, telepon, volume) sama sekali tidak butuh LLM cloud — di sinilah mode offline paling masuk akal.
 
-**Rekomendasi desain:** jangan pilih salah satu. Buat **dua mode**:
+**Keputusan (diperbarui):** draf sebelumnya merekomendasikan offline sebagai default. Pengguna memilih sebaliknya — **online dulu, offline bila internet tidak tersedia**. Rinciannya di §4.10 dan [ADR 0002](decisions/0002-online-first-offline-fallback.md).
 
-- **Mode offline (default, gratis):** ASR lokal + intent lokal + TTS Piper ID + LLM on-device untuk pertanyaan.
-- **Mode cloud (opsional):** Gemini untuk pertanyaan sulit / butuh info terkini, dengan kuota milik pengguna sendiri.
-
-Interface `ChatEngine` di §6 sudah memungkinkan dua implementasi berdampingan tanpa mengubah UI.
+Kombinasi ini tetap memenuhi syarat "gratis & tanpa batas": online memakai free tier; saat kuota habis (429) atau sinyal hilang, stack on-device di tabel §16.1 mengambil alih. Stack di atas bukan lagi mode utama, melainkan **jaring pengaman**.
 
 ### 16.3 Kapan Shizuku berguna — dan batasnya
 
