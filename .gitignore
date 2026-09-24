@@ -1,0 +1,17 @@
+# Lingkungan virtual untuk menjalankan pemeriksa dokumen (tools/check_docs.py)
+.venv-doccheck/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Android / Gradle (saat kode aplikasi mulai ditulis)
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
