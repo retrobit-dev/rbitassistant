@@ -444,11 +444,14 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 1. Perilaku `SpeechRecognizer` on-device pada XOS 15 / Infinix GT 30 Pro.
 2. Ketersediaan dan kualitas paket suara `id-ID` di TTS sistem perangkat ini.
 3. Kualitas Whisper (int8) untuk bahasa Indonesia pada kalimat perintah pendek.
-4. Ketersediaan model TTS neural (Piper/Kokoro) berbahasa Indonesia.
+4. ~~Ketersediaan model TTS neural berbahasa Indonesia~~ — **sudah terjawab: ADA.** Lihat §16.1. Yang tersisa hanya menguji kualitas `vits-piper-id_ID-news_tts-medium` dan `supertonic-3-id`.
 5. **Status free tier dan harga `gemini-3.8-flash`** — halaman harga resmi belum terbaca lengkap di sesi ini; kabar "free tier hanya Flash/Flash-Lite sejak April 2026" berasal dari sumber sekunder.
 6. Angka konsumsi baterai wake word always-on pada perangkat ini.
 7. **Ketersediaan function calling di `gemini-3.8-live`** dan biaya per menit audionya (§4.7a).
 8. **Model Gemma on-device terbaik saat ini** — daftar harga resmi Gemini API kini memuat "Gemma 4"; angka Gemma 3n di draf awal belum disurvei ulang.
+9. **Kualitas jawaban bahasa Indonesia dari LLM on-device** kelas ~4B (§16.2). Ini penentu apakah mode offline layak jadi default.
+10. **Keandalan Shizuku di XOS 15** — dokumen Shizuku tidak memuat XOS dalam daftar workaround OEM-nya (§16.4).
+11. **Apakah root + `/system/priv-app/` + `privapp-permissions` bisa mengaktifkan `BIND_VOICE_INTERACTION`** — jalur teoritis, belum diverifikasi (§16.3).
 
 **Sudah diverifikasi lewat dokumentasi primer (diperbarui 2026-09-02):** kapabilitas `gemini-3.8-flash` — input Text/Image/Video/Audio/PDF, Function calling *Supported*, Search grounding *Supported*, Structured output *Supported*, Thinking low/medium/high, Audio generation *Not supported*, Live API *Not supported*. Juga: Live API mendukung 99 bahasa termasuk `id`, dan live transcription mencantumkan `id-ID` serta `jv-ID`.
 
@@ -465,6 +468,11 @@ Poin-poin berikut **belum** saya konfirmasi langsung di perangkat/dokumentasi pr
 - **Primer:** `ai.google.dev/gemini-api/docs/models` dan `/models/gemini-3.8-flash` (diperbarui 2026-09-02) — daftar model stabil/preview dan tabel kapabilitas `gemini-3.8-flash`.
 - **Primer:** `ai.google.dev/gemini-api/docs/live-api`, `/live-api/capabilities`, `/live-api/live-transcribe` — 99 bahasa termasuk `id`, format audio PCM 16-bit 16 kHz in / 24 kHz out, `custom_vocabulary` ≤1.000 istilah, transkripsi `id-ID` & `jv-ID`.
 - **Sekunder, perlu verifikasi ulang:** perubahan free tier Gemini API per 1 April 2026 (Flash/Flash-Lite tetap free dengan kuota diperketat; Pro jadi paid-only).
+- **Primer:** `k2-fsa.github.io/sherpa/onnx/tts/all/` — daftar model TTS per bahasa; seksi **Indonesian** memuat `vits-piper-id_ID-news_tts-medium` dan `supertonic-3-id`.
+- **Primer:** `shizuku.rikka.app/guide/setup/` — tiga cara start Shizuku; wireless debugging (Android 11+) perlu diulang tiap reboot; daftar workaround OEM memuat MIUI/ColorOS/Flyme/EMUI/Sony, **tidak memuat XOS**.
+- **Primer:** diskusi `RikkaApps/Shizuku#320` (maintainer RikkaW) — aplikasi Shizuku berjalan di UID yang sama dengan server: **2000 bila lewat adb, 0 bila lewat root**.
+- **Sekunder:** analisis keamanan Shizuku — mewarisi privilege `adb shell`; tidak bisa menulis partisi terlindung, melewati SELinux, atau memberi permission signature-level.
+- **Sekunder:** unlock bootloader Infinix tidak didukung resmi; GT 30 Pro (X6873) di-root lewat layanan pihak ketiga/EDL, unlock menghapus data, OTA hilang.
 
 ---
 
@@ -522,3 +530,76 @@ Konsekuensi untuk Fase 1:
 | Kualitas ASR ID di perangkat tidak bisa dipastikan dari jauh | Ketergantungan perangkat | **Fase 0 wajib dijalankan Anda sendiri di GT 30 Pro** — empat pertanyaan di §9. |
 
 **Kendala terbesar secara praktis:** Fase 0 hanya bisa dijalankan oleh orang yang memegang Infinix GT 30 Pro itu. Selama empat pertanyaan di §9 belum terjawab, setiap pilihan ASR/TTS di dokumen ini masih berupa hipotesis yang masuk akal — bukan fakta.
+
+---
+
+## 16. Varian "100% gratis & tanpa kuota": perlu root atau Shizuku?
+
+**Jawaban pendek: tidak perlu root. Shizuku juga belum tentu perlu — dan keduanya tidak menentukan apakah asisten ini gratis.**
+
+Yang menentukan "gratis & unlimited" adalah **apakah seluruh pipeline berjalan di perangkat**. Root/Shizuku adalah soal *privilege*, bukan soal *biaya*. Menjawab dengan root berarti menjawab pertanyaan yang salah.
+
+### 16.1 Stack on-device penuh (biaya Rp 0, kuota 0)
+
+| Komponen | Pilihan gratis | Status |
+|---|---|---|
+| VAD | Silero VAD via sherpa-onnx | Tersedia, gratis |
+| ASR | sherpa-onnx + Whisper **multilingual** int8 | Tersedia. Bukti dukungan ID: paket spoken-language-ID sherpa-onnx menyertakan `id-indonesian.wav`. **Kualitas pada kalimat perintah pendek belum diukur.** |
+| Perintah | Router regex + fuzzy + katalog intent lokal | Gratis selamanya — ini justru bagian paling andal |
+| Chatbot | LLM on-device: llama.cpp (GGUF) atau MediaPipe/LiteRT | Gratis, tanpa kuota. **Kualitas jawaban ID di bawah Gemini Flash.** |
+| TTS | **Piper `vits-piper-id_ID-news_tts-medium`** via sherpa-onnx | ✅ **Terverifikasi ada** — halaman TTS sherpa-onnx punya seksi "Indonesian" |
+| TTS alternatif | **`supertonic-3-id`** via sherpa-onnx | ✅ Terverifikasi ada |
+| Wake word | sherpa-onnx KWS (latih sendiri) | Perlu dataset + training |
+| Search grounding / berita terkini | — | ❌ **Tidak ada pengganti offline.** Ini hilang total di mode offline. |
+
+**Ini menyelesaikan salah satu butir "belum terverifikasi" di §12:** di draf awal saya menulis ketersediaan TTS neural berbahasa Indonesia "perlu diverifikasi". Ternyata **memang ada**, dan ada dua: Piper `id_ID` dan Supertonic 3 `id`. Yang tersisa untuk diuji adalah kualitas suaranya, bukan keberadaannya.
+
+### 16.2 Harga yang sebenarnya dibayar
+
+Bukan uang — **kualitas**:
+
+1. **Chatbot offline akan terasa lebih bodoh** daripada Gemini Flash, terutama untuk pertanyaan yang butuh pengetahuan luas atau penalaran panjang. Untuk perangkat 8/12 GB RAM, kelas model yang muat adalah ~4B parameter terkuantisasi.
+2. **Tidak ada informasi terkini.** Tanpa search grounding, pertanyaan "harga Infinix GT 30 Pro sekarang" atau "berita hari ini" tidak bisa dijawab benar.
+3. **Model memakan penyimpanan.** GT 30 Pro tidak punya slot microSD: ASR ±100–250 MB + LLM 2–4 GB + TTS ±60–120 MB, semua di penyimpanan internal.
+4. **Perintah tidak terpengaruh.** Jalur perintah (buka aplikasi, timer, telepon, volume) sama sekali tidak butuh LLM cloud — di sinilah mode offline paling masuk akal.
+
+**Rekomendasi desain:** jangan pilih salah satu. Buat **dua mode**:
+
+- **Mode offline (default, gratis):** ASR lokal + intent lokal + TTS Piper ID + LLM on-device untuk pertanyaan.
+- **Mode cloud (opsional):** Gemini untuk pertanyaan sulit / butuh info terkini, dengan kuota milik pengguna sendiri.
+
+Interface `ChatEngine` di §6 sudah memungkinkan dua implementasi berdampingan tanpa mengubah UI.
+
+### 16.3 Kapan Shizuku berguna — dan batasnya
+
+Kegunaan nyata Shizuku untuk proyek ini adalah **menjaga asisten tetap hidup di XOS**, bukan membuka kemampuan baru.
+
+| Kemampuan | Tanpa Shizuku | Dengan Shizuku (UID 2000/shell) | Dengan root (UID 0) |
+|---|---|---|---|
+| Whitelist battery optimization | Manual di Settings | ✅ lewat `appops`/`cmd deviceidle` | ✅ |
+| Grant permission tanpa dialog | ❌ | ✅ | ✅ |
+| Baca/tulis `Settings.Secure` & `Settings.Global` | ❌ | ✅ (`WRITE_SECURE_SETTINGS`) | ✅ |
+| Disable/unfreeze aplikasi sistem | ❌ | ✅ | ✅ |
+| **Jadi asisten sistem** (`BIND_VOICE_INTERACTION`) | ❌ | ❌ | ⚠️ lihat catatan |
+| Mempercepat ASR/LLM on-device | — | ❌ tidak berpengaruh | ❌ tidak berpengaruh |
+| Meningkatkan kualitas jawaban | — | ❌ tidak berpengaruh | ❌ tidak berpengaruh |
+
+Batas yang **tidak** bisa dilewati Shizuku (sesuai dokumentasi & analisis keamanannya): tidak bisa menulis partisi terlindung, tidak bisa memodifikasi boot image, tidak bisa melewati SELinux, tidak bisa memuat kernel module, dan **tidak bisa memberikan permission signature-level**. Shizuku hanya mewarisi apa yang diizinkan `adb shell`.
+
+Catatan soal root dan `BIND_VOICE_INTERACTION`: permission itu mensyaratkan APK **ditandatangani kunci platform** *dan* di-preinstall OEM — bukan sekadar "punya akses root". Jalur teoritis root (pasang APK ke `/system/priv-app/` + whitelist `privapp-permissions`) **belum saya verifikasi** dan jangan dianggap tersedia.
+
+### 16.4 Biaya praktis Shizuku di GT 30 Pro
+
+- Android 11+ bisa mulai lewat **wireless debugging** tanpa PC, tetapi dokumen resmi Shizuku menyatakan **langkah start harus diulang setiap reboot**. Untuk asisten yang diharapkan selalu siap, ini friksi nyata.
+- Dokumen Shizuku memuat workaround khusus OEM untuk **MIUI, ColorOS, Flyme, EMUI, Sony** — **XOS tidak tercantum**. Artinya keandalannya di Infinix **belum terverifikasi**.
+- Shizuku sendiri meminta: jangan matikan Developer options/USB debugging, USB mode "Charge only"/"No data transfer", dan (Android 11+) aktifkan "Disable adb authorization timeout".
+
+**Rekomendasi:** jangan mulai dari Shizuku. Jalankan dulu Fase 0 butir ke-4 — apakah foreground service mic bertahan 30 menit di XOS. Kalau bertahan, Shizuku tidak diperlukan sama sekali. Kalau tidak, baru pertimbangkan.
+
+### 16.5 Root: tidak disarankan
+
+- Unlock bootloader Infinix **tidak didukung resmi**; tersedia lewat layanan pihak ketiga berbayar atau tool "ENG bootloader" via EDL yang dibagikan di forum.
+- **Unlock menghapus seluruh data**, dan **OTA resmi hilang** setelah root.
+- Risiko bricking nyata, dan manfaatnya untuk proyek ini **nol**: kemampuan utama yang diinginkan (asisten sistem) tidak terbuka oleh root.
+
+Satu-satunya alasan root yang masuk akal di sini: Shizuku jadi bisa start otomatis saat boot dan tidak perlu pairing ulang. Itu terlalu mahal untuk manfaat sekecil itu.

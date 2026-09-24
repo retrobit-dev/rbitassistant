@@ -22,6 +22,12 @@ Dua di antaranya menentukan bentuk proyek ini:
 
 Selebihnya — wake word yang tidak mendukung bahasa Indonesia, XOS yang agresif mematikan proses latar, kuota API yang bisa berubah — ada di [architecture.md §15](docs/architecture.md).
 
+## Mode gratis & tanpa kuota
+
+Seluruh pipeline bisa dijalankan **di perangkat, tanpa API berbayar dan tanpa kuota**: ASR Whisper int8, TTS Piper berbahasa Indonesia, katalog intent lokal, dan LLM on-device untuk pertanyaan terbuka. Rincian stack, harga yang dibayar (kualitas, bukan uang), serta jawaban atas pertanyaan **perlu root atau Shizuku?** ada di [architecture.md §16](docs/architecture.md).
+
+Ringkasnya: **root tidak diperlukan** (dan tidak membuka kemampuan utamanya), **Shizuku belum tentu diperlukan** — keduanya soal privilege, bukan soal biaya.
+
 ## Batasan penting yang perlu diketahui sejak awal
 
 rbitassistant adalah **aplikasi asisten**, bukan asisten default Android. Menjadi asisten default (tahan tombol Home, hotword selalu aktif milik sistem) memerlukan `VoiceInteractionService` dengan permission `BIND_VOICE_INTERACTION`, yang bersifat *signature-level* dan hanya bisa diberikan OEM pada APK system. Aplikasi pihak ketiga tidak akan pernah mendapatkannya.
