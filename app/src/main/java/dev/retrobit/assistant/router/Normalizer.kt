@@ -21,6 +21,10 @@ class Normalizer(
     suffixFillers: List<String>,
     private val units: Map<String, Int>,
     private val multipliers: Map<String, Int>,
+    private val halfWord: String = "setengah",
+    private val halfAfter: Set<String> = emptySet(),
+    private val possessiveWords: List<String> = emptyList(),
+    private val possessiveSuffixes: List<String> = emptyList(),
 ) {
     // Frasa terpanjang dulu. sortedByDescending stabil, sama seperti sorted() Python.
     private val abbreviationRules: List<Pair<Regex, String>> =
@@ -38,8 +42,36 @@ class Normalizer(
         s = s.split(' ', '\t', '\n', '\r').filter { it.isNotEmpty() }.joinToString(" ")
         for ((rx, rep) in abbreviationRules) s = rx.replace(s, rep)
         s = numbers(s)
+        s = halfPast(s)
         s = stripFillers(s)
         return s
+    }
+
+    /** "jam setengah 7" -> "jam 6:30"; N di luar 1..12 dibiarkan. */
+    private fun halfPast(s: String): String {
+        val words = s.split(' ').filter { it.isNotEmpty() }
+        val out = ArrayList<String>()
+        var i = 0
+        while (i < words.size) {
+            val n = words.getOrNull(i + 2)?.takeIf { it.length <= 2 && it.all { c -> c in '0'..'9' } }?.toInt()
+            if (n != null && n in 1..12 && words[i] in halfAfter && words[i + 1] == halfWord) {
+                out += words[i]
+                out += "${if (n == 1) 12 else n - 1}:30"
+                i += 3
+                continue
+            }
+            out += words[i]
+            i++
+        }
+        return out.joinToString(" ")
+    }
+
+    /** Kandidat slot kontak tanpa kata kepemilikan: "mama saya" -> ["mama"], "ibuku" -> ["ibu"]. */
+    fun withoutPossessive(raw: String): List<String> {
+        val out = ArrayList<String>()
+        for (w in possessiveWords) if (raw.endsWith(" $w")) out += raw.substring(0, raw.length - w.length - 1)
+        for (suf in possessiveSuffixes) if (raw.endsWith(suf) && raw.length > suf.length + 1) out += raw.substring(0, raw.length - suf.length)
+        return out
     }
 
     private fun numbers(s: String): String {
@@ -140,12 +172,18 @@ class Normalizer(
             fun intMap(x: Any?): Map<String, Int> =
                 (x as Map<*, *>).entries.associate { it.key.toString() to (it.value as Number).toInt() }
             val numbers = d["numbers"] as Map<*, *>
+            val half = d["half_past"] as Map<*, *>
+            val poss = d["possessives"] as Map<*, *>
             return Normalizer(
                 abbreviations = strMap(d["abbreviations"]),
                 prefixFillers = (d["prefix_fillers"] as List<*>).map { it.toString() },
                 suffixFillers = (d["suffix_fillers"] as List<*>).map { it.toString() },
                 units = intMap(numbers["units"]),
                 multipliers = intMap(numbers["multipliers"]),
+                halfWord = half["word"].toString(),
+                halfAfter = (half["after"] as List<*>).map { it.toString() }.toSet(),
+                possessiveWords = (poss["words"] as List<*>).map { it.toString() },
+                possessiveSuffixes = (poss["suffixes"] as List<*>).map { it.toString() },
             )
         }
     }

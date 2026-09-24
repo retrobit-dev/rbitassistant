@@ -51,10 +51,10 @@ fun OnboardingScreen(onDone: (apiKey: String) -> Unit) {
     ) {
         Spacer(Modifier.height(12.dp))
         Icon(
-            painterResource(R.drawable.ic_mic),
+            painterResource(R.drawable.px_robot_face_happy),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(72.dp),
         )
         Text("Selamat datang di Rbit Asisten", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Feature("Perintah", "Buka aplikasi, timer, alarm, senter, volume, dan lainnya. Langsung jalan, juga tanpa internet.")
@@ -68,7 +68,7 @@ fun OnboardingScreen(onDone: (apiKey: String) -> Unit) {
                     "1. Ketuk tombol di bawah dan masuk dengan akun Google.\n" +
                         "2. Pilih \"Create API key\", lalu salin.\n" +
                         "3. Kembali ke sini dan ketuk Tempel.",
-                    fontSize = 14.sp,
+                    fontSize = 18.sp,
                 )
                 OutlinedButton(onClick = { uri.openUri(API_KEY_URL) }, modifier = Modifier.fillMaxWidth()) {
                     Text("Buka Google AI Studio")
@@ -89,7 +89,7 @@ fun OnboardingScreen(onDone: (apiKey: String) -> Unit) {
 
         Text(
             "Setelah ini Android akan meminta izin Mikrofon (untuk mendengar) dan Kontak (untuk menelepon/SMS dengan nama).",
-            fontSize = 12.sp,
+            fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -111,6 +111,6 @@ fun OnboardingScreen(onDone: (apiKey: String) -> Unit) {
 private fun Feature(title: String, body: String) {
     Column {
         Text(title, fontWeight = FontWeight.SemiBold)
-        Text(body, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(body, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -7,7 +7,7 @@ plugins {
 // Nomor build dari GitHub Actions; lokal = 1. versionCode harus naik agar APK baru
 // bisa dipasang di atas yang lama.
 val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-val versionPrefix = "0.2" // dibaca juga oleh .github/workflows/android.yml
+val versionPrefix = "0.3" // dibaca juga oleh .github/workflows/android.yml
 
 android {
     namespace = "dev.retrobit.assistant"

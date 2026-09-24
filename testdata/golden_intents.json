@@ -767,8 +767,7 @@
     "amount": 30,
     "unit": "minute"
    },
-   "known_gap": true,
-   "note": "'setengah' belum ditangani normalisasi"
+   "note": "v0.3: frasa 'setengah jam' -> '30 menit' (abbreviations)"
   },
   {
    "text": "bangunkan saya jam setengah tujuh",
@@ -776,8 +775,7 @@
    "slots": {
     "time": "6:30"
    },
-   "known_gap": true,
-   "note": "'setengah tujuh' = 6:30, idiom Indonesia"
+   "note": "v0.3: half_past, 'jam setengah 7' -> 'jam 6:30'"
   },
   {
    "text": "besok pagi jam lima bangunkan aku",
@@ -786,17 +784,15 @@
     "time": "5:00",
     "period": "pagi"
    },
-   "known_gap": true,
-   "note": "urutan kata terbalik"
+   "note": "v0.3: pola set_alarm urutan terbalik"
   },
   {
    "text": "putar despacito",
    "expect": "play_music",
    "slots": {
-    "query": "despacito"
+    "title": "despacito"
    },
-   "known_gap": true,
-   "note": "tanpa kata 'lagu'/'musik' judul tidak bisa dibedakan; butuh LLM"
+   "note": "v0.3: pola '(putar|mainkan) {title}' dengan reject_words"
   },
   {
    "text": "buka watsap",
@@ -804,8 +800,7 @@
    "slots": {
     "app": "WhatsApp"
    },
-   "known_gap": true,
-   "note": "salah eja/dengar; tugas resolver fuzzy"
+   "note": "v0.3: ejaan WhatsApp di abbreviations"
   },
   {
    "text": "telepon mama saya",
@@ -813,8 +808,7 @@
    "slots": {
     "contact": "Ibu"
    },
-   "known_gap": true,
-   "note": "'mama saya' bukan alias persis; tugas fuzzy"
+   "note": "v0.3: resolver kontak membuang kata kepemilikan (possessives)"
   },
   {
    "text": "kecilin suaranya",
@@ -822,8 +816,7 @@
    "slots": {
     "direction": "down"
    },
-   "known_gap": true,
-   "note": "akhiran -in bahasa percakapan"
+   "note": "v0.3: akhiran -in -> -kan (abbreviations)"
   },
   {
    "text": "tolong matiin senternya",
@@ -831,8 +824,7 @@
    "slots": {
     "state": "off"
    },
-   "known_gap": true,
-   "note": "akhiran -in dan -nya"
+   "note": "v0.3: -in -> -kan dan 'senternya' -> 'senter'"
   },
   {
    "text": "kirim pesan ke ibu aku pulang telat",
@@ -841,14 +833,164 @@
     "contact": "Ibu",
     "message": "aku pulang telat"
    },
-   "known_gap": true,
-   "note": "tanpa 'bilang'/'isinya' batas kontak-pesan tidak jelas"
+   "note": "v0.3: pola tanpa penanda; kontak = potongan terpendek yang dikenal"
   },
   {
    "text": "download lagu gratis dimana",
    "expect": "chat",
+   "note": "v0.3: reject_words kata tanya pada slot query search_play_store"
+  },
+  {
+   "text": "pasang timer seperempat jam",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 15,
+    "unit": "minute"
+   }
+  },
+  {
+   "text": "setel alarm jam setengah satu siang",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "12:30",
+    "period": "siang"
+   }
+  },
+  {
+   "text": "besok jam empat bangunin aku",
+   "expect": "set_alarm",
+   "slots": {
+    "time": "4:00"
+   }
+  },
+  {
+   "text": "mainkan bohemian rhapsody",
+   "expect": "play_music",
+   "slots": {
+    "title": "bohemian rhapsody"
+   }
+  },
+  {
+   "text": "puter lagu noah",
+   "expect": "play_music",
+   "slots": {
+    "query": "noah"
+   }
+  },
+  {
+   "text": "mainkan lagu apa saja",
+   "expect": "play_music",
+   "slots": {
+    "query": "apa saja"
+   }
+  },
+  {
+   "text": "buka wasapp",
+   "expect": "open_app",
+   "slots": {
+    "app": "WhatsApp"
+   }
+  },
+  {
+   "text": "telepon ibuku",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Ibu"
+   }
+  },
+  {
+   "text": "hubungi bapak aku",
+   "expect": "call_contact",
+   "slots": {
+    "contact": "Bapak"
+   }
+  },
+  {
+   "text": "gedein volumenya",
+   "expect": "set_volume",
+   "slots": {
+    "direction": "up"
+   }
+  },
+  {
+   "text": "nyalain senter dong",
+   "expect": "toggle_flashlight",
+   "slots": {
+    "state": "on"
+   }
+  },
+  {
+   "text": "kirim sms ke budi aku sudah sampai",
+   "expect": "send_sms",
+   "slots": {
+    "contact": "Budi Santoso",
+    "message": "aku sudah sampai"
+   }
+  },
+  {
+   "text": "kirim whatsapp ke siti besok libur",
+   "expect": "send_whatsapp",
+   "slots": {
+    "contact": "Siti Rahma",
+    "message": "besok libur"
+   }
+  },
+  {
+   "text": "putar kanan di perempatan",
+   "expect": "chat"
+  },
+  {
+   "text": "putar otak dulu",
+   "expect": "chat"
+  },
+  {
+   "text": "mainkan peran sebagai guru",
+   "expect": "chat"
+  },
+  {
+   "text": "putar balik di mana",
+   "expect": "chat"
+  },
+  {
+   "text": "download aplikasi apa yang bagus",
+   "expect": "chat"
+  },
+  {
+   "text": "install whatsapp caranya bagaimana",
+   "expect": "chat"
+  },
+  {
+   "text": "jam setengah tujuh itu jam berapa",
+   "expect": "chat"
+  },
+  {
+   "text": "kirim pesan ke budi santoso aku telat",
+   "expect": "send_sms",
+   "slots": {
+    "contact": "Budi Santoso",
+    "message": "aku telat"
+   },
    "known_gap": true,
-   "note": "SALAH POSITIF: terbaca search_play_store; pertanyaan berbentuk perintah perlu tingkat 4"
+   "note": "kontak diambil potongan TERPENDEK yang dikenal ('budi'), sisanya jadi pesan; konfirmasi selalu ditampilkan"
+  },
+  {
+   "text": "pasang timer satu setengah jam",
+   "expect": "set_timer",
+   "slots": {
+    "amount": 90,
+    "unit": "minute"
+   },
+   "known_gap": true,
+   "note": "'satu setengah jam' belum dihitung"
+  },
+  {
+   "text": "putar video killed the radio star",
+   "expect": "play_music",
+   "slots": {
+    "title": "video killed the radio star"
+   },
+   "known_gap": true,
+   "note": "'video' ada di reject_words slot title"
   }
  ]
 }

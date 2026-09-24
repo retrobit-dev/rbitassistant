@@ -6,6 +6,8 @@ slots:
   query:
     type: text
     max_words: 4
+    # Pertanyaan berbentuk perintah bukan pencarian aplikasi: "download lagu gratis dimana".
+    reject_words: [apa, siapa, mana, dimana, bagaimana, kenapa, mengapa, berapa, kapan, cara, caranya]
 examples:
   - "cari aplikasi edit video di play store"
   - "download canva"

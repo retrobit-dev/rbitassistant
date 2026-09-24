@@ -71,14 +71,14 @@ fun MicButton(phase: Phase, level: Float, followUp: Boolean, onClick: () -> Unit
             ) {
                 val stop = phase == Phase.LISTENING || phase == Phase.THINKING || phase == Phase.SPEAKING
                 Icon(
-                    painterResource(if (stop) R.drawable.ic_stop else R.drawable.ic_mic),
+                    painterResource(if (stop) R.drawable.px_stop_solid else R.drawable.px_mic),
                     contentDescription = when (phase) {
                         Phase.IDLE -> "Bicara"
                         Phase.LISTENING -> "Berhenti mendengarkan"
                         Phase.THINKING -> "Hentikan jawaban"
                         Phase.SPEAKING -> "Hentikan suara"
                     },
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(48.dp),
                 )
             }
         }
@@ -89,7 +89,7 @@ fun MicButton(phase: Phase, level: Float, followUp: Boolean, onClick: () -> Unit
                 Phase.THINKING -> "Memproses… ketuk untuk berhenti"
                 Phase.SPEAKING -> "Berbicara… ketuk untuk menghentikan"
             },
-            fontSize = 13.sp,
+            fontSize = 16.sp,
             color = scheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
         )

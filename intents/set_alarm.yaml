@@ -2,6 +2,7 @@ id: set_alarm
 patterns:
   - "(setel|pasang|atur|set|buat) alarm [(jam|pukul) {time} [{period}]]"
   - "(bangunkan|bangunin) (aku|saya) [besok] (jam|pukul) {time} [{period}]"
+  - "[besok] [{period}] (jam|pukul) {time} (bangunkan|bangunin) (aku|saya)"
 slots:
   time:
     type: clock

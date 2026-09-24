@@ -89,7 +89,14 @@ private class PatternCompiler(
     }
 }
 
-class Slot(val name: String, val type: String, val values: Map<String, String>, val maxWords: Int?) {
+class Slot(
+    val name: String,
+    val type: String,
+    val values: Map<String, String>,
+    val maxWords: Int?,
+    /** Slot gugur bila salah satu katanya ada di sini (mis. kata tanya pada judul lagu). */
+    val rejectWords: Set<String> = emptySet(),
+) {
     fun regex(): String = when (type) {
         "number" -> "\\d+"
         "clock" -> "\\d{1,2}(?::\\d{2})?"
@@ -161,7 +168,18 @@ fun loadCatalog(files: List<Pair<String, String>>): List<IntentSpec> {
                     values[ek] = ev
                 }
             }
-            slots[name] = Slot(name, type as String, values, (spec["max_words"] as? Number)?.toInt())
+            val reject = when (val r = spec["reject_words"]) {
+                null -> emptyList<Any?>()
+                is List<*> -> r
+                else -> throw CatalogError("$rel: slot '$name': reject_words harus daftar kata huruf kecil")
+            }
+            if (!reject.all { it is String && it == it.lowercase(java.util.Locale.ROOT) }) {
+                throw CatalogError("$rel: slot '$name': reject_words harus daftar kata huruf kecil")
+            }
+            slots[name] = Slot(
+                name, type as String, values, (spec["max_words"] as? Number)?.toInt(),
+                reject.map { it as String }.toSet(),
+            )
         }
 
         val slotRegex = slots.mapValues { it.value.regex() }

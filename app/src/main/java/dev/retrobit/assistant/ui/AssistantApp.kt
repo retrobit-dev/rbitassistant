@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -137,12 +138,12 @@ private fun MainScreen(vm: AssistantViewModel, openSettings: () -> Unit, request
             Spacer(Modifier.size(4.dp))
             Text(
                 if (vm.settings.alwaysOffline) "selalu offline" else if (vm.online) "online" else "offline",
-                fontSize = 12.sp,
+                fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.weight(1f))
             IconButton(onClick = openSettings) {
-                Icon(painterResource(R.drawable.ic_settings), contentDescription = "Pengaturan")
+                Icon(painterResource(R.drawable.px_settings_cog_2), contentDescription = "Pengaturan")
             }
         }
         vm.catalogError?.let { Banner("Katalog perintah gagal dimuat: $it") }
@@ -182,7 +183,7 @@ private fun MainScreen(vm: AssistantViewModel, openSettings: () -> Unit, request
             Text(
                 vm.notice.orEmpty(),
                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                fontSize = 13.sp,
+                fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
             )
@@ -196,12 +197,12 @@ private fun MainScreen(vm: AssistantViewModel, openSettings: () -> Unit, request
                     Text(prompt, fontWeight = FontWeight.Medium)
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { vm.confirmPending(true) }) {
-                            Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(painterResource(R.drawable.px_check), contentDescription = null, modifier = Modifier.size(24.dp))
                             Spacer(Modifier.size(6.dp))
                             Text("Ya")
                         }
                         OutlinedButton(onClick = { vm.confirmPending(false) }) {
-                            Icon(painterResource(R.drawable.ic_close), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(painterResource(R.drawable.px_close), contentDescription = null, modifier = Modifier.size(24.dp))
                             Spacer(Modifier.size(6.dp))
                             Text("Batal")
                         }
@@ -229,7 +230,7 @@ private fun MainScreen(vm: AssistantViewModel, openSettings: () -> Unit, request
             keyboardActions = KeyboardActions(onSend = { send() }),
             trailingIcon = {
                 IconButton(onClick = send, enabled = typed.isNotBlank()) {
-                    Icon(painterResource(R.drawable.ic_send), contentDescription = "Kirim")
+                    Icon(painterResource(R.drawable.px_send), contentDescription = "Kirim")
                 }
             },
         )
@@ -263,10 +264,16 @@ private fun EmptyState(onExample: (String) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Icon(
+            painterResource(R.drawable.px_robot_face_happy),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(48.dp),
+        )
         Text("Halo! Ada yang bisa dibantu?", style = MaterialTheme.typography.titleMedium)
         Text(
             "Ketuk mikrofon lalu bicara, atau coba salah satu:",
-            fontSize = 13.sp,
+            fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         for (e in EXAMPLES) {
@@ -280,7 +287,7 @@ private fun Banner(text: String, onClick: (() -> Unit)? = null) {
     Card(
         Modifier.fillMaxWidth().padding(vertical = 4.dp).let { if (onClick != null) it.clickable(onClick = onClick) else it },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-    ) { Text(text, Modifier.padding(10.dp), fontSize = 13.sp) }
+    ) { Text(text, Modifier.padding(10.dp), fontSize = 16.sp) }
 }
 
 @Composable
@@ -308,7 +315,7 @@ private fun Bubble(m: ChatMessage, onLongPress: () -> Unit) {
                 Text(m.text)
             }
             if (m.origin == "offline") {
-                Text("offline", fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                Text("offline", fontSize = 18.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
@@ -347,6 +354,24 @@ private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
     var speak by remember { mutableStateOf(s.speakReplies) }
     var conversation by remember { mutableStateOf(s.conversationMode) }
     var confirmClear by remember { mutableStateOf(false) }
+    var showLicenses by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+
+    if (showLicenses) {
+        val text = remember {
+            runCatching {
+                ctx.assets.list("licenses").orEmpty().sorted().joinToString("\n\n————\n\n") { f ->
+                    ctx.assets.open("licenses/$f").bufferedReader().use { it.readText() }
+                }
+            }.getOrElse { "Gagal membaca lisensi: ${it.message}" }
+        }
+        AlertDialog(
+            onDismissRequest = { showLicenses = false },
+            title = { Text("Lisensi pihak ketiga") },
+            text = { Text(text, Modifier.verticalScroll(rememberScrollState()), fontSize = 14.sp) },
+            confirmButton = { TextButton(onClick = { showLicenses = false }) { Text("Tutup") } },
+        )
+    }
 
     if (confirmClear) {
         AlertDialog(
@@ -371,7 +396,7 @@ private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Pengaturan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = close) { Icon(painterResource(R.drawable.ic_close), contentDescription = "Tutup") }
+            IconButton(onClick = close) { Icon(painterResource(R.drawable.px_close), contentDescription = "Tutup") }
         }
 
         SectionTitle("Gemini")
@@ -406,14 +431,26 @@ private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
 
         SectionTitle("Akses cepat")
         Text(
-            "• Tile: tarik panel notifikasi → ikon pensil → seret \"Rbit: bicara\".\n" +
-                "• Widget: tekan lama layar utama → Widget → Rbit Asisten.\n" +
-                "• Pintasan: tekan lama ikon aplikasi → Bicara.",
-            fontSize = 13.sp,
+            "• Tile: tarik panel notifikasi › ikon pensil › seret \"Rbit: bicara\".\n" +
+                "• Widget: tekan lama layar utama › Widget › Rbit Asisten.\n" +
+                "• Pintasan: tekan lama ikon aplikasi › Bicara.",
+            fontSize = 16.sp,
         )
 
         SectionTitle("Data")
-        OutlinedButton(onClick = { confirmClear = true }) { Text("Hapus riwayat chat") }
+        OutlinedButton(onClick = { confirmClear = true }) {
+            Icon(painterResource(R.drawable.px_trash), contentDescription = null, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Hapus riwayat chat")
+        }
+
+        SectionTitle("Lisensi")
+        Text(
+            "• Font PixelOperator: Jayvee Enaguas, CC0 1.0 (domain publik).\n" +
+                "• Ikon pixelarticons: Gerrit Halfmann, lisensi MIT.",
+            fontSize = 16.sp,
+        )
+        OutlinedButton(onClick = { showLicenses = true }) { Text("Lihat teks lisensi") }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Text("Diagnostik", fontWeight = FontWeight.Bold)
@@ -428,7 +465,7 @@ private fun SettingsScreen(vm: AssistantViewModel, close: () -> Unit) {
                 "Aplikasi terdeteksi: ${vm.apps.count}",
                 "Kontak terbaca: " + if (vm.contacts.hasPermission()) "${vm.contacts.count}" else "izin belum diberikan",
             ).joinToString("\n"),
-            fontSize = 13.sp,
+            fontSize = 16.sp,
         )
         OutlinedButton(onClick = { vm.testTts() }) { Text("Tes suara") }
         Spacer(Modifier.height(24.dp))
@@ -450,7 +487,7 @@ private fun ToggleRow(label: String, hint: String?, checked: Boolean, onChange: 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label)
-            if (hint != null) Text(hint, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (hint != null) Text(hint, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Switch(checked = checked, onCheckedChange = onChange)
     }

@@ -6,11 +6,11 @@ Ditujukan pertama-tama untuk **Infinix GT 30 Pro** (Android 15 / XOS 15, Dimensi
 
 ## Status
 
-**v0.2**: aplikasi Android (Fase 1 MVP + poles UI/UX) sudah ada di [`app/`](app/). APK dibangun otomatis oleh GitHub Actions dan diterbitkan di halaman **Releases** repo ini.
+**v0.3**: aplikasi Android (Fase 1 MVP + poles UI/UX + tampilan piksel + router lebih paham bahasa percakapan) sudah ada di [`app/`](app/). APK dibangun otomatis oleh GitHub Actions dan diterbitkan di halaman **Releases** repo ini.
 
 ## Memasang APK di HP
 
-1. Di HP, buka `github.com/retrobit-dev/rbitassistant/releases`, lalu unduh `rbitassistant-0.2.N.apk` terbaru.
+1. Di HP, buka `github.com/retrobit-dev/rbitassistant/releases`, lalu unduh `rbitassistant-0.3.N.apk` terbaru.
 2. Buka berkasnya. Bila diminta, izinkan **Instal aplikasi tidak dikenal** untuk Chrome/File Manager. XOS mungkin memperingatkan aplikasi dari luar Play Store; pilih tetap pasang.
 3. Buka **Rbit Asisten**. Layar sambutan menuntun cara mengambil API key Gemini gratis (boleh dilewati; perintah tetap jalan tanpa key).
 4. Izinkan **Mikrofon** dan **Kontak**.
@@ -23,7 +23,10 @@ Isi aplikasi:
 - Chatbot Gemini (streaming) dengan circuit breaker. Saat offline, pertanyaan dijawab dengan pesan "belum bisa offline". LLM offline (ADR 0003) menyusul di Fase 3.
 - Cuaca dari Open-Meteo (gratis, tanpa key), kota default Jepara.
 - **v0.2 (UI/UX):** ikon & animasi gelombang suara, **mode percakapan** (langsung mendengarkan lagi setelah menjawab/bertanya), riwayat chat tersimpan, tekan lama untuk menyalin, tombol berhenti saat Gemini menjawab, layar sambutan, serta akses cepat lewat **tile Quick Settings**, **widget**, dan **pintasan ikon**.
+- **v0.3 (tampilan piksel + router):** seluruh teks memakai font **PixelOperator** (CC0) dan ikon diganti **pixelarticons** (MIT), termasuk ikon aplikasi, widget, dan tile. Router kini paham `timer setengah jam`, `jam setengah tujuh`, `kecilin suaranya`, `matiin senternya`, `putar despacito`, `telepon mama saya`, `buka watsap`, `kirim pesan ke ibu aku pulang telat`. Pertanyaan seperti `download lagu gratis dimana` tidak lagi salah dibaca sebagai perintah. `pasang alarm` tanpa jam membuka layar alarm, tidak lagi galat. Teks lisensi ada di Pengaturan › Lisensi.
 - Panel **Diagnostik** di Pengaturan untuk menjawab pertanyaan Fase 0 (ASR on-device, suara TTS offline, jumlah aplikasi/kontak).
+
+Ikon diimpor dengan `python3 tools/import_pixelarticons.py [nama-ikon…]` (versi terkunci, sha512 diverifikasi). Font ada di `app/src/main/res/font/`.
 
 Belum ada: wake word, tangkapan layar, LLM offline, teks pesan dengan huruf asli (pesan SMS/WA dikirim dalam bentuk ternormalisasi: huruf kecil, angka).
 
@@ -43,7 +46,7 @@ Selebihnya — wake word yang tidak mendukung bahasa Indonesia, XOS yang agresif
 
 ## Katalog perintah (sudah bisa diuji)
 
-23 perintah berbahasa Indonesia ada di `intents/`, dan diuji otomatis melawan 139 ucapan di `testdata/golden_intents.json`. Di dalamnya ada 22 jebakan seperti *"buka puasa jam berapa"*, yang harus dijawab chatbot dan bukan malah membuka aplikasi. Coba sendiri:
+23 perintah berbahasa Indonesia ada di `intents/`, dan diuji otomatis melawan 162 ucapan di `testdata/golden_intents.json`. Di dalamnya ada 30 jebakan seperti *"buka puasa jam berapa"*, yang harus dijawab chatbot dan bukan malah membuka aplikasi. Coba sendiri:
 
 ```bash
 python3 -m venv .venv-doccheck && .venv-doccheck/bin/pip install pyyaml

@@ -27,6 +27,7 @@ class Router(
 ) {
     fun resolve(slot: Slot, raw: String): Any? {
         if (slot.maxWords != null && raw.split(' ').size > slot.maxWords) return null
+        if (slot.rejectWords.isNotEmpty() && raw.split(' ').any { it in slot.rejectWords }) return null
         return when (slot.type) {
             "number" -> raw.toIntOrNull()
             "clock" -> {
@@ -37,7 +38,7 @@ class Router(
             }
             "enum" -> slot.values[raw]
             "app_name" -> resolver.app(raw)
-            "contact" -> resolver.contact(raw)
+            "contact" -> (listOf(raw) + normalizer.withoutPossessive(raw)).firstNotNullOfOrNull { resolver.contact(it) }
             else -> raw
         }
     }

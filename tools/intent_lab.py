@@ -59,6 +59,10 @@ class Normalizer:
     suffix_fillers: list[str]
     units: dict[str, int]
     multipliers: dict[str, int]
+    half_word: str = "setengah"
+    half_after: tuple[str, ...] = ()
+    possessive_words: tuple[str, ...] = ()
+    possessive_suffixes: tuple[str, ...] = ()
 
     @classmethod
     def load(cls, path: Path = NORMALIZER_FILE) -> "Normalizer":
@@ -69,6 +73,10 @@ class Normalizer:
             suffix_fillers=sorted(data["suffix_fillers"], key=lambda s: -len(s.split())),
             units={str(k): int(v) for k, v in data["numbers"]["units"].items()},
             multipliers={str(k): int(v) for k, v in data["numbers"]["multipliers"].items()},
+            half_word=str(data["half_past"]["word"]),
+            half_after=tuple(str(w) for w in data["half_past"]["after"]),
+            possessive_words=tuple(str(w) for w in data["possessives"]["words"]),
+            possessive_suffixes=tuple(str(w) for w in data["possessives"]["suffixes"]),
         )
 
     def __call__(self, text: str) -> str:
@@ -79,8 +87,36 @@ class Normalizer:
         s = " ".join(s.split())
         s = self._abbreviate(s)
         s = self._numbers(s)
+        s = self._half_past(s)
         s = self._strip_fillers(s)
         return s
+
+    def _half_past(self, s: str) -> str:
+        """'jam setengah 7' -> 'jam 6:30'; N di luar 1..12 dibiarkan."""
+        words = s.split()
+        out: list[str] = []
+        i = 0
+        while i < len(words):
+            if (i + 2 < len(words) and words[i] in self.half_after and words[i + 1] == self.half_word
+                    and words[i + 2].isdigit() and len(words[i + 2]) <= 2 and 1 <= int(words[i + 2]) <= 12):
+                n = int(words[i + 2])
+                out += [words[i], f"{12 if n == 1 else n - 1}:30"]
+                i += 3
+                continue
+            out.append(words[i])
+            i += 1
+        return " ".join(out)
+
+    def without_possessive(self, raw: str) -> list[str]:
+        """Kandidat slot kontak tanpa kata kepemilikan: 'mama saya' -> ['mama']."""
+        out: list[str] = []
+        for w in self.possessive_words:
+            if raw.endswith(" " + w):
+                out.append(raw[: -len(w) - 1])
+        for suf in self.possessive_suffixes:
+            if raw.endswith(suf) and len(raw) > len(suf) + 1:
+                out.append(raw[: -len(suf)])
+        return out
 
     def _abbreviate(self, s: str) -> str:
         # Frasa terpanjang dulu, hanya pada batas kata.
@@ -259,6 +295,7 @@ class Slot:
     type: str
     values: dict[str, str] = field(default_factory=dict)   # untuk enum: ucapan -> kanonik
     max_words: int | None = None
+    reject_words: frozenset[str] = frozenset()
 
     def regex(self) -> str:
         if self.type == "number":
@@ -352,7 +389,10 @@ def load_catalog(norm: Normalizer) -> list[Intent]:
                             f"{rel}: slot enum '{name}': nilai {k!r}: {v!r} bukan string — "
                             f"beri tanda kutip (mis. \"on\"), karena YAML 1.1 dan 1.2 membacanya berbeda")
                 values = {k: v for k, v in pairs}
-            slots[name] = Slot(name, stype, values, spec.get("max_words"))
+            reject = spec.get("reject_words") or []
+            if not isinstance(reject, list) or not all(isinstance(w, str) and w == w.lower() for w in reject):
+                raise CatalogError(f"{rel}: slot '{name}': reject_words harus daftar kata huruf kecil")
+            slots[name] = Slot(name, stype, values, spec.get("max_words"), frozenset(reject))
 
         slot_regex = {n: s.regex() for n, s in slots.items()}
         patterns = []
@@ -402,6 +442,8 @@ class Router:
         """Kembalikan nilai kanonik, atau None bila slot tidak valid."""
         if slot.max_words is not None and len(raw.split()) > slot.max_words:
             return None
+        if slot.reject_words and any(w in slot.reject_words for w in raw.split()):
+            return None
         if slot.type == "number":
             return int(raw)
         if slot.type == "clock":
@@ -413,7 +455,10 @@ class Router:
         if slot.type == "app_name":
             return self.device.apps.get(raw)
         if slot.type == "contact":
-            return self.device.contacts.get(raw)
+            for cand in [raw, *self.norm.without_possessive(raw)]:
+                if cand in self.device.contacts:
+                    return self.device.contacts[cand]
+            return None
         return raw                                              # text
 
     def route(self, utterance: str) -> Route:

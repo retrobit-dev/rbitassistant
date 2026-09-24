@@ -2,13 +2,23 @@ id: play_music
 patterns:
   - "(putar|putarkan|mainkan|setel) (musik|lagu) [{query}]"
   - "(putar|putarkan|mainkan|setel) {query} di spotify"
+  # Judul tanpa kata "lagu": "putar despacito". Slot terpisah ({title}) karena aturannya lebih
+  # ketat daripada {query}. Tanpa "setel", karena bentrok dengan "setel alarm/timer/volume".
+  - "(putar|putarkan|mainkan) {title}"
 slots:
   query:
     type: text
     max_words: 6
+  title:
+    type: text
+    max_words: 5
+    # Bukan musik: "mainkan game apa yang seru", "putar balik", "putar kanan di perempatan".
+    reject_words: [apa, siapa, mana, dimana, bagaimana, kenapa, mengapa, berapa, kapan, cara,
+                   game, video, film, youtube, balik, arah, kanan, kiri, layar, otak, peran, badan, kepala]
 examples:
   - "putar musik"
   - "putar lagu dewa 19"
+  - "putar despacito"
 action: play_music        # lewat MediaSession / intent aplikasi musik
 confirmation: never
 needs_network: false

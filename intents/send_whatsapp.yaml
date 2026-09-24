@@ -2,6 +2,7 @@ id: send_whatsapp
 patterns:
   - "(kirim|kirimkan) [pesan] whatsapp ke {contact} (bilang|isinya|yang isinya) {message}"
   - "whatsapp {contact} (bilang|isinya) {message}"
+  - "(kirim|kirimkan) [pesan] whatsapp ke {contact} {message}"
 slots:
   contact:
     type: contact

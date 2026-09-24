@@ -11,6 +11,7 @@
 #   3. selain huruf, angka, ":" dan spasi -> spasi; rapatkan spasi
 #   4. ganti singkatan per kata (abbreviations)
 #   5. kata bilangan -> angka ("dua puluh lima" -> "25")
+#   5b. jam "setengah N" -> "(N-1):30" (half_past), mis. "jam setengah 7" -> "jam 6:30"
 #   6. buang kata pengisi di awal (prefix_fillers) dan di akhir (suffix_fillers), berulang
 #
 # PENTING: teks hasil normalisasi hanya dipakai untuk MENCOCOKKAN pola.
@@ -44,6 +45,38 @@ abbreviations:
   setelan: pengaturan
   pause: jeda
   lampu senter: senter
+  senternya: senter
+  # Ejaan WhatsApp hasil ASR / ketikan
+  watsap: whatsapp
+  watsapp: whatsapp
+  wasapp: whatsapp
+  wassap: whatsapp
+  whatsaap: whatsapp
+  whatapp: whatsapp
+  # Durasi. Diproses sebelum kata bilangan, jadi hasilnya langsung angka.
+  setengah jam: 30 menit
+  seperempat jam: 15 menit
+  # Akhiran percakapan -in -> bentuk baku (-kan). Hanya kata kerja perintah yang dipakai pola.
+  kecilin: kecilkan
+  gedein: besarkan
+  besarin: besarkan
+  kerasin: keraskan
+  naikin: naikkan
+  turunin: turunkan
+  pelanin: pelankan
+  matiin: matikan
+  nyalain: nyalakan
+  idupin: hidupkan
+  hidupin: hidupkan
+  bangunin: bangunkan
+  puter: putar
+  puterin: putarkan
+  setelin: setel
+  bukain: buka
+  cariin: cari
+  telponin: telepon
+  teleponin: telepon
+  kirimin: kirim
 
 # Kata pengisi yang dibuang dari AWAL ucapan (berulang, frasa terpanjang dulu).
 prefix_fillers:
@@ -71,6 +104,19 @@ suffix_fillers:
   - sih
   - please
   - donk
+
+# Idiom jam Indonesia: "jam setengah tujuh" = 6:30 (setengah jalan MENUJU jam 7).
+# Hanya berlaku tepat setelah salah satu kata `after`, dan N harus 1..12
+# ("setengah 1" -> 12:30). Tanpa kata "jam"/"pukul" teks dibiarkan.
+half_past:
+  word: setengah
+  after: [jam, pukul]
+
+# Kata kepemilikan yang dicoba dibuang dari akhir slot KONTAK bila kontak tidak ditemukan:
+# "mama saya" -> "mama", "ibuku" -> "ibu". Bukan bagian normalisasi teks.
+possessives:
+  words: [saya, aku, gue, gua]
+  suffixes: [ku]
 
 # Kata bilangan. Algoritmanya ada di docs/intents.md §Bilangan.
 numbers:

@@ -47,10 +47,10 @@ class ToolExecutor(
         "send_sms" -> sendSms(slots["contact"] as String, slots["message"] as String)
         "send_whatsapp" -> sendWhatsApp(slots["contact"] as String, slots["message"] as String)
         "set_timer" -> setTimer(slots["amount"] as Int, slots["unit"] as String)
-        "set_alarm" -> setAlarm(slots["time"] as String, slots["period"] as String?)
+        "set_alarm" -> (slots["time"] as String?)?.let { setAlarm(it, slots["period"] as String?) } ?: alarmWithoutTime()
         "what_time" -> tellTime()
         "what_date" -> tellDate()
-        "play_music" -> playMusic(slots["query"] as String?)
+        "play_music" -> playMusic((slots["query"] ?: slots["title"]) as String?)
         "pause_music" -> mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE, "Musik dijeda.")
         "next_track" -> mediaKey(KeyEvent.KEYCODE_MEDIA_NEXT, "Lagu berikutnya.")
         "set_volume" -> setVolume(slots["direction"] as String?, slots["level"] as Int?)
@@ -159,6 +159,12 @@ class ToolExecutor(
             .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
         val shown = String.format(Locale.ROOT, "%02d.%02d", h, m)
         return if (start(i)) ToolOutcome.Done("Alarm jam ${spokenClock(h, m)} dipasang.", "Alarm $shown dipasang.") else noClock()
+    }
+
+    /** "pasang alarm" tanpa jam: buka layar alarm aplikasi jam supaya jamnya dipilih sendiri. */
+    private fun alarmWithoutTime(): ToolOutcome.Done {
+        val i = Intent(AlarmClock.ACTION_SET_ALARM).putExtra(AlarmClock.EXTRA_MESSAGE, "Rbit")
+        return if (start(i)) ToolOutcome.Done("Silakan pilih jam alarmnya.") else noClock()
     }
 
     private fun noClock() = ToolOutcome.Done("Aplikasi jam tidak menerima perintah ini.")

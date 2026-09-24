@@ -2,6 +2,8 @@ id: send_sms
 patterns:
   - "(kirim|kirimkan) (sms|pesan) ke {contact} (bilang|isinya|yang isinya) {message}"
   - "sms {contact} (bilang|isinya) {message}"
+  # Tanpa penanda: kontak = potongan terpendek yang dikenal resolver, sisanya pesan.
+  - "(kirim|kirimkan) (sms|pesan) ke {contact} {message}"
 slots:
   contact:
     type: contact
